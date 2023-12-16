@@ -24,7 +24,7 @@ class MixedModel():
         self.intercept = initial_intercept
         self.a = np.array([1 for _ in range(self.num_selected_features)])
         self.b = np.array([0 for _ in range(self.num_selected_features)])
-        self.omega_coefficients = np.concatenate([[omega], np.array([0 for _ in range(self.num_selected_features - 1)])])
+        self.omega_coefficients = np.ones(self.num_selected_features) * omega / self.num_selected_features
         # self.loss_history = []
 
     # метод .fit() необходим для обучения модели
@@ -79,7 +79,7 @@ class MixedModel():
                     factor = 1 / yp
                 else:
                     raise
-                factor /= data_size
+                factor /= - data_size
                 d_sigmoid_features = self.deriv_sigmoid(z)
                 df_intercept += (1 - omega) * d_sigmoid_features * factor
                 for k in range(num_features):
@@ -96,7 +96,7 @@ class MixedModel():
             #df = np.zeros(1 + num_features + 3 * num_selected_features - 1)
             df = np.concatenate([[df_intercept], df_weights, df_a, df_b, df_omega_coefficients])
             return f, df
-            #return f
+            # return f
 
         w_init = np.concatenate([[self.intercept], self.weights, self.a, self.b, self.omega_coefficients])
         # задаем ограничения для оптимизации
@@ -118,6 +118,16 @@ class MixedModel():
         c = np.concatenate([c, np.ones(num_selected_features)])
         linear_constraint = LinearConstraint(c, [omega], [omega])
         # optim_res = minimize(f_and_df, w_init, method='BFGS', jac=True, options={'disp': True})
+        """
+        p0 = w_init
+        f0 = f_and_df(p0)[0]
+        step = 1e-8
+        for i in range(len(w_init)):
+            p = p0.copy()
+            p[i] += step
+            f1, df1 = f_and_df(p)
+            print((f1 - f0) / step, df1[i])
+        """
         optim_res = minimize(f_and_df, w_init, method='trust-constr',
                              constraints=[linear_constraint], jac=True, options={'verbose': 1}, bounds=bounds)
         self.intercept, self.weights, self.a, self.b, self.omega_coefficients = extract_parameters(optim_res.x)

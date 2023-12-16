@@ -20,9 +20,9 @@ class MixedModel():
         self.omega = omega
         self.weights = initial_weights
         self.intercept = initial_intercept
-        self.a = np.array([1 for _ in range(selected_features)])
-        self.b = np.array([0 for _ in range(selected_features)])
-        self.omega_coefficients = np.concatenate([omega, np.array([0 for _ in range(self.num_selected_features - 1)])])
+        self.a = np.array([1 for _ in range(self.num_selected_features)])
+        self.b = np.array([0 for _ in range(self.num_selected_features)])
+        self.omega_coefficients = np.concatenate([[omega], np.array([0 for _ in range(self.num_selected_features - 1)])])
         # self.loss_history = []
 
     # метод .fit() необходим для обучения модели

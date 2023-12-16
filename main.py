@@ -15,13 +15,15 @@ print("Смещение:", logist_reg.intercept_[0])
 print()
 
 selected_features = [0, 1, 2]
-omega = 0 # 0.6
+omega = 0.6
 mixed_model = MixedModel(selected_features, omega, logist_reg.coef_.ravel(), logist_reg.intercept_[0])
 mixed_model.fit(data_x, data_y)
 
 print("Параметры смешанной модели:")
 print("omega =", omega * 100, "%")
-print("Выбранные предикторы:", map(lambda i: predictors[i], selected_features))
+print("Выбранные предикторы:", list(map(lambda i: predictors[i], selected_features)))
 print("Веса многофакторной модели:", mixed_model.weights)
 print("Смещение многофакторной модели:", mixed_model.intercept)
 print("Весовые коэффициенты при однофакторных моделях:", mixed_model.omega_coefficients * 100)
+print("Коэффициенты однофакторных моделей:", mixed_model.a)
+print("Смещения однофакторных моделей:", mixed_model.b)

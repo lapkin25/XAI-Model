@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.optimize import minimize
+from scipy.optimize import Bounds
+from scipy.optimize import LinearConstraint
 
 # Смешанная модель, состоящая из многофакторной логистической регрессии
 #   и нескольких однофакторных логистических регрессий, взятых с весами:
@@ -42,9 +44,9 @@ class MixedModel():
             # смещения однофакторных моделей
             b = p[num_features + 1 + num_selected_features : num_features + 1 + 2 * num_selected_features]
             # веса при однофакторных моделях
-            omega_selected = p[num_features + 1 + 2 * num_selected_features : num_features + 3 * num_selected_features]
+            omega_selected = p[num_features + 1 + 2 * num_selected_features : num_features + 1 + 3 * num_selected_features]
             # коэффициент omega_k для последнего выделенного признака вычисляем
-            omega_selected = np.append(omega_selected, omega - np.sum(omega_selected))
+            # omega_selected = np.append(omega_selected, omega - np.sum(omega_selected))
             return w0, w, a, b, omega_selected
 
         def f_and_df(p):
@@ -57,9 +59,10 @@ class MixedModel():
             df_weights = np.zeros(num_features)
             df_a = np.zeros(num_selected_features)
             df_b = np.zeros(num_selected_features)
-            df_omega_coefficients = np.zeros(num_selected_features - 1)
+            df_omega_coefficients = np.zeros(num_selected_features)
             zk = np.zeros(num_selected_features)  # аргументы сигмоид для выделенных признаков
             y_pred = np.zeros(data_size)  # выходы, предсказанные моделью
+            #print("omega =", omega, "sum omega_k =", np.sum(omega_selected))
             for i in range(data_size):
                 yp = 0  # предсказание выхода
                 for k in range(num_selected_features):
@@ -86,18 +89,37 @@ class MixedModel():
                     j = self.selected_features[k]  # номер выделенного признака
                     df_a[k] += omega_selected[k] * d_sigmoid_selected * x[i][j] * factor
                     df_b[k] += omega_selected[k] * d_sigmoid_selected * factor
-                for k in range(num_selected_features - 1):
+                for k in range(num_selected_features):
                     df_omega_coefficients[k] += self.stable_sigmoid(zk[k]) * factor
 
             f = self.objective(y, y_pred)
             #df = np.zeros(1 + num_features + 3 * num_selected_features - 1)
             df = np.concatenate([[df_intercept], df_weights, df_a, df_b, df_omega_coefficients])
-            #return f, df
-            return f
+            return f, df
+            #return f
 
         w_init = np.concatenate([[self.intercept], self.weights, self.a, self.b, self.omega_coefficients])
+        # задаем ограничения для оптимизации
+        lb = []
+        rb = []
+        # intercept, weights, a, b
+        for _ in range(1 + num_features + 2 * num_selected_features):
+            lb.append(-np.inf)
+            rb.append(np.inf)
+        # omega_coefficients
+        for _ in range(num_selected_features):
+            lb.append(0)
+            rb.append(omega)
+        bounds = Bounds(lb, rb)
+        # задаем линейное ограничение
+        # intercept, weights, a, b
+        c = np.zeros(1 + num_features + 2 * num_selected_features)
+        # omega_coefficients
+        c = np.concatenate([c, np.ones(num_selected_features)])
+        linear_constraint = LinearConstraint(c, [omega], [omega])
         # optim_res = minimize(f_and_df, w_init, method='BFGS', jac=True, options={'disp': True})
-        optim_res = minimize(f_and_df, w_init, method='BFGS', options={'disp': True})
+        optim_res = minimize(f_and_df, w_init, method='trust-constr',
+                             constraints=[linear_constraint], jac=True, options={'verbose': 1}, bounds=bounds)
         self.intercept, self.weights, self.a, self.b, self.omega_coefficients = extract_parameters(optim_res.x)
 
 
@@ -122,11 +144,11 @@ class MixedModel():
         return y_pred
 
     def objective(self, y, y_pred):
-        try:
-            y_one_loss = y * np.log(y_pred + 1e-9)
-        finally:
-            print(np.min(y_pred), np.max(y_pred))
+#        try:
+        y_one_loss = y * np.log(y_pred + 1e-9)
         y_zero_loss = (1 - y) * np.log(1 - y_pred + 1e-9)
+#        finally:
+#            print(np.min(y_pred), np.max(y_pred))
         return -np.mean(y_zero_loss + y_one_loss)
 
     def stable_sigmoid(self, z):

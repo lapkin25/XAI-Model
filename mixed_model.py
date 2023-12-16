@@ -5,6 +5,7 @@ from scipy.optimize import minimize
 #   и нескольких однофакторных логистических регрессий, взятых с весами:
 #   p(x) = ω_1·σ(a_1·x_{s_1} + b_1) + ... + ω_m·σ(a_m·x_{s_m} + b_m) +
 #     + (1 - ω)·σ(w_0 + w_1·x_1 + ... + w_p·x_p)
+# Оптимизация с ограничением: ω_1 + ... + ω_m = ω
 # Образец кода: https://www.dmitrymakarov.ru/opt/logistic-regression-05/
 class MixedModel():
 
@@ -21,7 +22,7 @@ class MixedModel():
         self.intercept = initial_intercept
         self.a = np.array([1 for _ in range(selected_features)])
         self.b = np.array([0 for _ in range(selected_features)])
-        self.omega_coefficients = np.concatenate([omega, np.array([0 for _ in range(self.num_selected_features - 2)])])
+        self.omega_coefficients = np.concatenate([omega, np.array([0 for _ in range(self.num_selected_features - 1)])])
         # self.loss_history = []
 
     # метод .fit() необходим для обучения модели
@@ -103,7 +104,7 @@ class MixedModel():
         data_size, num_features = x.shape[0], x.shape[1]
         num_selected_features = self.num_selected_features
         omega = self.omega
-        w0, w, a, b, omega_selected = self.intercept, self.weights, self.a, self.b, self.omega_coefficients
+        w0, w, a, b, omega_selected = self.intercept, self.weights, self.a, self.b, self.omega_coefficients[:-1]
         # TODO: можно вынести повторяющийся код
         zk = np.zeros(num_selected_features)  # аргументы сигмоид для выделенных признаков
         y_pred = np.zeros(data_size)  # выходы, предсказанные моделью

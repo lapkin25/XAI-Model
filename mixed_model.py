@@ -138,7 +138,7 @@ class MixedModel():
         data_size, num_features = x.shape[0], x.shape[1]
         num_selected_features = self.num_selected_features
         omega = self.omega
-        w0, w, a, b, omega_selected = self.intercept, self.weights, self.a, self.b, self.omega_coefficients[:-1]
+        w0, w, a, b, omega_selected = self.intercept, self.weights, self.a, self.b, self.omega_coefficients
         # TODO: можно вынести повторяющийся код
         zk = np.zeros(num_selected_features)  # аргументы сигмоид для выделенных признаков
         y_pred = np.zeros(data_size)  # выходы, предсказанные моделью

@@ -15,7 +15,7 @@ print("Смещение:", logist_reg.intercept_[0])
 print()
 
 selected_features = [0, 1, 2]
-omega = 0.6
+omega = 0.9
 mixed_model = MixedModel(selected_features, omega, logist_reg.coef_.ravel(), logist_reg.intercept_[0])
 mixed_model.fit(data_x, data_y)
 

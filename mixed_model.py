@@ -142,7 +142,7 @@ class MixedModel():
         # TODO: можно вынести повторяющийся код
         zk = np.zeros(num_selected_features)  # аргументы сигмоид для выделенных признаков
         y_pred = np.zeros(data_size)  # выходы, предсказанные моделью
-        for i in data_size:
+        for i in range(data_size):
             yp = 0  # предсказание выхода
             for k in range(num_selected_features):
                 j = self.selected_features[k]  # номер выделенного признака
@@ -154,11 +154,8 @@ class MixedModel():
         return y_pred
 
     def objective(self, y, y_pred):
-#        try:
         y_one_loss = y * np.log(y_pred + 1e-9)
         y_zero_loss = (1 - y) * np.log(1 - y_pred + 1e-9)
-#        finally:
-#            print(np.min(y_pred), np.max(y_pred))
         return -np.mean(y_zero_loss + y_one_loss)
 
     def stable_sigmoid(self, z):

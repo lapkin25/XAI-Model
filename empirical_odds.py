@@ -1,4 +1,6 @@
+import math
 import numpy as np
+from tqdm import tqdm
 
 # взвешенная равномерная метрика
 def weighted_max_distance(x1, x2, w):
@@ -12,17 +14,15 @@ def weighted_max_distance(x1, x2, w):
 # Возвращает для окрестности каждой точки
 #   оценку отношения вероятности класса "1" к вероятности класса "0"
 # Для оценки берется K ближайших точек в равномерной метрике с весами w[i]
-def empirical_odds(x, y, K, w):
+def empirical_log_odds(x, y, K, w):
     data_size, num_features = x.shape[0], x.shape[1]
-    odds = []
-    for i in range(data_size):
-        print(i)
-        d = []
+    log_odds = []
+    for i in tqdm(range(data_size)):
+        d = np.array([0 for _ in range(data_size)])
         for j in range(data_size):
-            d.append(weighted_max_distance(x[i], x[j], w))
-        dist = np.array(d)
+            d[j] = weighted_max_distance(x[i], x[j], w)
         # индексы точек в порядке возрастания расстояния до i-й точки
-        points_ind = dist.argsort()
+        points_ind = d.argsort()
 
         cnt0 = 0
         cnt1 = 0
@@ -33,9 +33,9 @@ def empirical_odds(x, y, K, w):
                 cnt1 += 1
             else:
                 raise
-        odds1 = cnt1 / cnt0
-        odds.append(odds1)
-    return odds
+        log_odds1 = math.log((cnt1 + 0.5 / K) / (cnt0 + 0.5 / K))
+        log_odds.append(log_odds1)
+    return log_odds
 
 
 

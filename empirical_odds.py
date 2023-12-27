@@ -1,7 +1,10 @@
+import numpy as np
+
 # взвешенная равномерная метрика
 def weighted_max_distance(x1, x2, w):
     ans = 0
-    for i in range(len(x1)):
+    num_features = len(x1)
+    for i in range(num_features):
         ans = max(ans, abs(w[i] * (x1[i] - x2[i])))
     return ans
 
@@ -17,10 +20,9 @@ def empirical_odds(x, y, K, w):
         d = []
         for j in range(data_size):
             d.append(weighted_max_distance(x[i], x[j], w))
-        points_decorated = [(d[j], j) for j in range(data_size)]
-        points_decorated.sort()
+        dist = np.array(d)
         # индексы точек в порядке возрастания расстояния до i-й точки
-        points_ind = [j for _, j in points_decorated]
+        points_ind = dist.argsort()
 
         cnt0 = 0
         cnt1 = 0

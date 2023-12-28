@@ -37,16 +37,19 @@ plt.show()
 
 diff_pred_emp = []
 selected_data = []
+selected_data_y_pred = []
 for i in range(data_size):
     if data_y[i] == 1:
         diff_pred_emp.append(emp_log_odds[i] - pred_log_odds[i])
         selected_data.append(data_x[i])
+        selected_data_y_pred.append(y_pred[i])
 
 selected_data_size = len(selected_data)
 
 for j in range(num_features):
     data_j = [selected_data[i][j] for i in range(selected_data_size)]
-    plt.scatter(data_j, diff_pred_emp)
+    #plt.scatter(data_j, diff_pred_emp, c=selected_data_y_pred, cmap='Reds')
+    plt.scatter(data_j, diff_pred_emp, c=list(map(lambda p: 'r' if p < 0.05 else 'b', selected_data_y_pred)))
     plt.plot([min(data_j), max(data_j)], [0, 0], 'k')
     plt.xlabel(predictors[j])
     plt.ylabel("emp_logit - pred_logit")

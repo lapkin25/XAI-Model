@@ -35,3 +35,21 @@ plt.xlabel("Предсказанный логит")
 plt.ylabel("Эмпирический логит")
 plt.show()
 
+diff_pred_emp = []
+selected_data = []
+for i in range(data_size):
+    if data_y[i] == 1:
+        diff_pred_emp.append(emp_log_odds[i] - pred_log_odds[i])
+        selected_data.append(data_x[i])
+
+selected_data_size = len(selected_data)
+
+for j in range(num_features):
+    data_j = [selected_data[i][j] for i in range(selected_data_size)]
+    plt.scatter(data_j, diff_pred_emp)
+    plt.plot([min(data_j), max(data_j)], [0, 0], 'k')
+    plt.xlabel(predictors[j])
+    plt.ylabel("emp_logit - pred_logit")
+    plt.savefig('results/' + predictors[j] + '.png')
+    plt.show()
+

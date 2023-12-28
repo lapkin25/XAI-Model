@@ -33,7 +33,7 @@ def empirical_log_odds(x, y, K, w):
                 cnt1 += 1
             else:
                 raise
-        log_odds1 = math.log((cnt1 / K + 0.5 / K) / (cnt0 / K + 0.5 / K))
+        log_odds1 = math.log((cnt1 + 0.5) / (cnt0 + 0.5))
         log_odds.append(log_odds1)
     return log_odds
 

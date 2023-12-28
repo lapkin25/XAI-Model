@@ -22,14 +22,15 @@ print("Смещение:", logist_reg.intercept_[0])
 print("AUC: ", auc)
 print()
 
-K = 20
+K = 60
 emp_log_odds = empirical_log_odds(data_x, data_y, K, logist_reg.coef_.ravel())
 pred_log_odds = list(map(lambda z: math.log(z / (1 - z)), y_pred))
 for i in range(data_size):
     print(emp_log_odds[i], pred_log_odds[i])
 plt.scatter(pred_log_odds, emp_log_odds, color=list(map(lambda y: 'r' if y == 1 else 'g', data_y)))
 plt.plot([min(emp_log_odds), max(emp_log_odds)], [min(emp_log_odds), max(emp_log_odds)], 'b')
-plt.plot([min(emp_log_odds), max(emp_log_odds)], [-2.94, -2.94], 'g')
+plt.plot([min(pred_log_odds), max(pred_log_odds)], [-2.94, -2.94], 'b')
+plt.plot([-2.94, -2.94], [min(emp_log_odds), max(emp_log_odds)], 'b')
 plt.xlabel("Предсказанный логит")
 plt.ylabel("Эмпирический логит")
 plt.show()

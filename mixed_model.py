@@ -22,8 +22,8 @@ class MixedModel():
         self.omega = omega
         self.weights = initial_weights
         self.intercept = initial_intercept
-        self.a = np.array([1 for _ in range(self.num_selected_features)])
-        self.b = np.array([0 for _ in range(self.num_selected_features)])
+        self.a = np.array([1.0 for _ in range(self.num_selected_features)])
+        self.b = np.array([0.0 for _ in range(self.num_selected_features)])
         self.omega_coefficients = np.ones(self.num_selected_features) * omega / self.num_selected_features
         # self.loss_history = []
 

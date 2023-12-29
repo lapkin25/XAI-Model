@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.optimize import minimize
 
 
 # Модель с кусочными весовыми коэффициентами
@@ -32,10 +33,17 @@ class PiecewiseModel():
             df_w_minus = np.zeros(num_features)
             # TODO: вычислить целевую функцию и ее градиент
 
+            f = self.objective(y, y_pred)
+            df = np.concatenate([[df_w0], df_w_plus, df_w_minus])
             return f, df
 
         # TODO: ...
 
+        w_init = np.concatenate([[self.intercept], self.weights_plus, self.weights_minus])
         optim_res = minimize(f_and_df, w_init, method='BFGS', jac=True, options={'verbose': 1})
         self.intercept, self.weights_plus, self.weights_minus = extract_parameters(optim_res.x)
 
+    def objective(self, y, y_pred):
+        y_one_loss = y * np.log(y_pred + 1e-9)
+        y_zero_loss = (1 - y) * np.log(1 - y_pred + 1e-9)
+        return -np.mean(y_zero_loss + y_one_loss)

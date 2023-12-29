@@ -25,6 +25,10 @@ class PiecewiseModel():
             w_minus = p[num_features + 1 : 2 * num_features + 1]
             return w0, w_plus, w_minus
 
+        # вычисляет пороги для каждого признака
+        def calc_a(w_plus, w_minus):
+            pass
+
         def f_and_df(p):
             w0, w_plus, w_minus = extract_parameters(p)
             # производные по параметрам модели
@@ -42,6 +46,7 @@ class PiecewiseModel():
         w_init = np.concatenate([[self.intercept], self.weights_plus, self.weights_minus])
         optim_res = minimize(f_and_df, w_init, method='BFGS', jac=True, options={'verbose': 1})
         self.intercept, self.weights_plus, self.weights_minus = extract_parameters(optim_res.x)
+        self.a = calc_a(self.weights_plus, self.weights_minus)
 
     def objective(self, y, y_pred):
         y_one_loss = y * np.log(y_pred + 1e-9)

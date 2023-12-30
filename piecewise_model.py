@@ -66,7 +66,11 @@ class PiecewiseModel():
 
         def f_and_df(p):
             w0, w_plus, w_minus = extract_parameters(p)
+            print('w0 = ', w0)
+            print('w+ = ', w_plus)
+            print('w- = ', w_minus)
             a = calc_a(w_plus, w_minus)  # вычисляем пороги
+            print('a = ', a)
             # производные по параметрам модели
             # не будем их считать, потому что целевая функция зависит еще и от порогов
             #df_w0 = 0
@@ -82,14 +86,15 @@ class PiecewiseModel():
             f = self.objective(y, y_pred)
             #df = np.concatenate([[df_w0], df_w_plus, df_w_minus])
             #return f, df
-            print(f)
+            print('f = ', f)
             return f
 
         # TODO: ...
 
         w_init = np.concatenate([[self.intercept], self.weights_plus, self.weights_minus])
         #optim_res = minimize(f_and_df, w_init, method='BFGS', jac=True, options={'verbose': 1})
-        optim_res = minimize(f_and_df, w_init, method='BFGS', options={'disp': True})  # или Nelder-Mead?
+        #optim_res = minimize(f_and_df, w_init, method='BFGS', options={'disp': True})  # или Nelder-Mead?
+        optim_res = minimize(f_and_df, w_init, method='Nelder-Mead', options={'disp': True})  # или Nelder-Mead?
         self.intercept, self.weights_plus, self.weights_minus = extract_parameters(optim_res.x)
         self.a = calc_a(self.weights_plus, self.weights_minus)
 

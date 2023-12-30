@@ -82,15 +82,23 @@ class PiecewiseModel():
             f = self.objective(y, y_pred)
             #df = np.concatenate([[df_w0], df_w_plus, df_w_minus])
             #return f, df
+            print(f)
             return f
 
         # TODO: ...
 
         w_init = np.concatenate([[self.intercept], self.weights_plus, self.weights_minus])
         #optim_res = minimize(f_and_df, w_init, method='BFGS', jac=True, options={'verbose': 1})
-        optim_res = minimize(f_and_df, w_init, method='BFGS', options={'verbose': 1})  # или Nelder-Mead?
+        optim_res = minimize(f_and_df, w_init, method='BFGS', options={'disp': True})  # или Nelder-Mead?
         self.intercept, self.weights_plus, self.weights_minus = extract_parameters(optim_res.x)
         self.a = calc_a(self.weights_plus, self.weights_minus)
+
+    def predict(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        y_pred = np.zeros(data_size)
+        for i in range(data_size):
+            y_pred[i] = self.calc_p(x[i], self.intercept, self.weights_plus, self.weights_minus, self.a)
+        return y_pred
 
     def stable_sigmoid(self, z):
         if z >= 0:

@@ -17,7 +17,15 @@ print("Смещение:", logist_reg.intercept_[0])
 print("AUC: ", auc)
 print()
 
-model = PiecewiseModel(logist_reg.coef_.ravel(), logist_reg.intercept_[0])
+#print(data_x)
+# приводим все признаки к положительному влиянию на y
+num_features = data_x.shape[1]
+for k in range(num_features):
+    if logist_reg.coef_.ravel()[k] < 0:
+        data_x[:, k] = 1 - data_x[:, k]
+#print(data_x)
+
+model = PiecewiseModel(abs(logist_reg.coef_.ravel()), logist_reg.intercept_[0])
 model.fit(data_x, data_y)
 
 print("Параметры кусочной модели:")

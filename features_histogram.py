@@ -14,7 +14,7 @@ for k in range(num_features):
     if k in invert_predictors:
         data_x[:, k] = 1 - data_x[:, k]
 
-batch_size = 40
+batch_size = 100
 
 for k in range(num_features):
     ind = np.argsort(data_x[:, k])

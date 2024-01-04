@@ -27,8 +27,23 @@ for pivot in tqdm(range(data_size)):
     points_1_num[pivot] = cnt1
 
 ind = np.argsort(points_num)
+ans_ind = []
 for i in range(data_size):
     P = points_1_num[ind[i]] / points_num[ind[i]]
     if P > 0.3:
-        print(points_num[ind[i]], points_1_num[ind[i]], P)
-        print(data_x[ind[i]])
+        ans_ind.append(ind[i])
+        #print(points_num[ind[i]], points_1_num[ind[i]], P)
+        #print(data_x[ind[i]])
+
+for i in range(len(ans_ind)):
+    is_ans = True
+    for k in range(len(ans_ind)):
+        if k != i and all([data_x[ans_ind[i]][j] >= data_x[ans_ind[k]][j] for j in range(num_features)]):
+            is_ans = False
+    if is_ans:
+        P = points_1_num[ans_ind[i]] / points_num[ans_ind[i]]
+        print(points_num[ans_ind[i]], points_1_num[ans_ind[i]], P)
+        print(data_x[ans_ind[i]])
+        print()
+
+

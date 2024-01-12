@@ -20,6 +20,15 @@ def calc_f2(x, y):
     return f1_score(y, y_pred)
 
 
+def calc_intercept(x, y):
+    # TODO: обучить модель с фиксированными коэффициентами и найти свободный член
+    # def calc_intercept(x, y, coef):
+    logist_reg = LogisticRegression()
+    logist_reg.fit(x, y)
+    return logist_reg.intercept_[0]
+
+
+
 predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 invert_predictors = [4, 6, 9]
 data_x, data_y = read_data(predictors, "Dead")
@@ -76,9 +85,14 @@ for i in range(K):
                       data_x[selected, feature2].reshape(-1, 1))),
             data_y[selected])
         """
-        loss1, loss2 = calc_loss(data_x[selected, :], data_y[selected])
+
+        #loss1, loss2 = calc_loss(data_x[selected, :], data_y[selected])
+
         #loss1 = calc_f2(data_x[selected, :], data_y[selected])
         #loss2 = loss1
+
+        loss1 = calc_intercept(data_x[selected, :], data_y[selected])
+        loss2 = loss1
 
         Z1[i, j] = loss1
         Z2[i, j] = loss2

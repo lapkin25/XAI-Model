@@ -6,6 +6,8 @@ from read_data import read_data
 from empirical_odds import empirical_log_odds
 
 predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+invert_predictors = [4, 6, 9]
+
 data_x, data_y = read_data(predictors, "Dead")
 data_size, num_features = data_x.shape[0], data_x.shape[1]
 
@@ -38,18 +40,26 @@ plt.show()
 diff_pred_emp = []
 selected_data = []
 selected_data_y_pred = []
+false_positive_data = []
+false_positive_data_diff = []
 for i in range(data_size):
     if data_y[i] == 1:
         diff_pred_emp.append(emp_log_odds[i] - pred_log_odds[i])
         selected_data.append(data_x[i])
         selected_data_y_pred.append(y_pred[i])
+    elif data_y[i] == 0 and y_pred[i] > 0.05:
+        false_positive_data.append(data_x[i])
+        false_positive_data_diff.append(emp_log_odds[i] - pred_log_odds[i])
 
 selected_data_size = len(selected_data)
+false_positive_data_size = len(false_positive_data)
 
 for j in range(num_features):
     data_j = [selected_data[i][j] for i in range(selected_data_size)]
+    data_fp_j = [false_positive_data[i][j] for i in range(false_positive_data_size)]
     #plt.scatter(data_j, diff_pred_emp, c=selected_data_y_pred, cmap='Reds')
     plt.scatter(data_j, diff_pred_emp, c=list(map(lambda p: 'r' if p < 0.05 else 'b', selected_data_y_pred)))
+    plt.scatter(data_fp_j, false_positive_data_diff, c='g')
     plt.plot([min(data_j), max(data_j)], [0, 0], 'k')
     plt.xlabel(predictors[j])
     plt.ylabel("emp_logit - pred_logit")

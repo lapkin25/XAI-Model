@@ -17,8 +17,7 @@ The first step is to construct univariate models for each feature.
 To this end, we find a weight and a cut-off threshold.
 The weight is equal to width of border area, where suspected points are situated.
 At the given weight, we have a border area Π. Let define a property Φ
-of points at the border area. This property is selected in such a way that
-allows to predict the "1" class at the border area.
+of points at the border area. This property is selected to predict the "1" class at the border area.
 More precise, the relation TPV/FPV (at the area Π∩Φ) is to be as high as possible.
 
 ### Improving the model
@@ -31,3 +30,9 @@ of coefficients.
 ### Augmentation of model features
 
 Border area method is proposed here to create new binary features which are determined by a few features.
+
+## Explainability
+
+The border area method can be considered as interpretable.
+When a selected feature is considered, its border area contains the points for which
+this feature is crucial.

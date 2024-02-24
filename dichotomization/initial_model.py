@@ -32,9 +32,7 @@ class InitialModel:
                 self.cutoffs[k] = optimal_cutoff
 
         # производим дихотомизацию
-        bin_x = x.copy()
-        for k in range(num_features):
-            bin_x[:, k] = bin_x[:, k] > self.cutoffs[k]
+        bin_x = self.dichotomize(x)
 
         # обучаем логистическую регрессию на данных с бинарными признаками
         logist_reg = LogisticRegression()
@@ -42,7 +40,17 @@ class InitialModel:
         self.weights = logist_reg.coef_.ravel()
         self.intercept = logist_reg.intercept_[0]
 
+    def dichotomize(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        bin_x = x.copy()
+        for k in range(num_features):
+            bin_x[:, k] = bin_x[:, k] > self.cutoffs[k]
+        return bin_x
+
     def predict_proba(self, x, y):
-        z = np.dot(x, self.weights) + self.intercept
+        # производим дихотомизацию
+        bin_x = self.dichotomize(x)
+
+        z = np.dot(bin_x, self.weights) + self.intercept
         probs = np.array([stable_sigmoid(value) for value in z])
         return probs

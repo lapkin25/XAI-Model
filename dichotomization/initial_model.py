@@ -19,6 +19,9 @@ class InitialModel:
             optimal_cutoff = None
             for cutoff in grid:
                 selection = x[:, k] > cutoff
+                # если в области слишком мало точек, пропускаем
+                if np.sum(selection) < 10:
+                    continue
                 dead = y[:] == 1
                 survived = y[:] == 0
                 tpv = np.sum(selection & dead)

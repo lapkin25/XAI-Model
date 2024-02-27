@@ -1,5 +1,5 @@
 import numpy as np
-from blist import sortedlist
+from sortedcontainers import SortedList
 
 # Находит пороги a, b, максимизирующие отношение числа единиц к числу нулей
 #   в области {x >= a & y >= b}
@@ -16,16 +16,28 @@ def max_ones_zeros(x_, y_, labels_, min_zero_count):
     labels = labels_[ind]
     n = x.size
 
-    x_coord = sortedlist()  # x-координаты всех добавленных точек
-    ones_x_coord = sortedlist()  # x-координаты всех добавленных единиц
+    max_rel = None
+    a = None
+    b = None
+
+    x_coord = SortedList()  # x-координаты всех добавленных точек
+    ones_x_coord = SortedList()  # x-координаты всех добавленных единиц
     for i in range(n):
         x_coord.add(x[i])
         if labels[i] == 1:
             ones_x_coord.add(x[i])
-        for ones_right, x1 in enumerate(reversed(ones_x_coord)):
-            # ones_right - число единиц не левее x1
-            # points_right - число точек не левее x1
-            points_right = x_coord.index()
+            for j, x1 in enumerate(reversed(ones_x_coord)):
+                # ones_right - число единиц не левее x1
+                ones_right = j + 1
+                # points_right - число точек не левее x1
+                points_right = (i + 1) - x_coord.index(x1)
+                # zeros_right - число нулей не левее x1
+                zeros_right = points_right - ones_right
+                if zeros_right >= min_zero_count:
+                    rel = ones_right / zeros_right
+                    if max_rel is None or rel > max_rel:
+                        max_rel = rel
+                        a = x1
+                        b = y[i]
 
-
-
+    return a, b, max_rel

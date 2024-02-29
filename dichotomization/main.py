@@ -57,8 +57,19 @@ for k, feature_name in enumerate(predictors):
     val = data.get_coord(feature_name, adjusted_model.cutoffs[k])
     s = '≤' if feature_name in invert_predictors else '≥'
     print(feature_name, " ", s, val, sep='')
+print("Комбинированные пороги:")
+for k, j, xj_cutoff in adjusted_model.combined_features:
+    feature_name = predictors[k]
+    val = data.get_coord(feature_name, adjusted_model.cutoffs[k])
+    s = '≤' if feature_name in invert_predictors else '≥'
+    print(feature_name, " ", s, val, sep='', end='')
+    feature_name = predictors[j]
+    val = data.get_coord(feature_name, xj_cutoff)
+    s = '≤' if feature_name in invert_predictors else '≥'
+    print(" & ", feature_name, " ", s, val, sep='')
 
 print("Веса:", adjusted_model.weights)
+print("Комбинированные веса:", adjusted_model.combined_weights)
 print("Интерсепт:", adjusted_model.intercept)
 p = adjusted_model.predict_proba(data.x, data.y)
 y_pred = np.where(p >= 0.05, 1, 0)

@@ -88,10 +88,12 @@ class AdjustedModel:
             print("Веса:", self.weights)
             print("Интерсепт:", self.intercept)
         # вычисляем AUC
+        """
         probs = self.predict_proba(x, y)
         auc = sklearn_metrics.roc_auc_score(y, probs)
         if verbose:
             print("AUC:", auc)
+        """
 
     # взять веса и интерсепт из логистической регрессии при заданных порогах
     def fit_logistic(self, x, y):
@@ -105,6 +107,7 @@ class AdjustedModel:
     def dichotomize(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
         bin_x = x.copy()
+        # TODO: исправить, чтобы у bin_x был тип int
         for k in range(num_features):
             bin_x[:, k] = bin_x[:, k] >= self.cutoffs[k]
         return bin_x

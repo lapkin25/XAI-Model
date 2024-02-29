@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.linear_model import LogisticRegression
 from adjusted_model import AdjustedModel
 from calc_functions import stable_sigmoid
 from tpv_fpv import max_ones_zeros
@@ -8,6 +9,7 @@ class CombinedFeaturesModel(AdjustedModel):
     def __init__(self):
         super().__init__()
         self.combined_features = None  # список троек (k, j, xj_cutoff)
+        self.combined_weights = None
 
     def fit(self, x, y, verbose=True):
         super().fit(x, y, verbose)
@@ -42,3 +44,36 @@ class CombinedFeaturesModel(AdjustedModel):
         for i in range(10):
             self.combined_features.append((combined_features_data[i][:-1]))
         # TODO: настроить веса
+        # bin_x1 = self.dichotomize_combined(x)
+        self.fit_logistic_combined(x, y)
+
+    def dichotomize_combined(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        # num_combined_features = len(self.combined_features)
+        bin_x = x.copy()
+        for k in range(num_features):
+            bin_x[:, k] = bin_x[:, k] >= self.cutoffs[k]
+        for k, j, xj_cutoff in self.combined_features:
+            filtering = np.array(x[:, j] >= xj_cutoff).astype(int)
+            new_feature = bin_x[:, k].astype(int) & filtering
+            bin_x = np.c_[bin_x, new_feature]
+        return bin_x
+
+    def fit_logistic_combined(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        num_combined_features = len(self.combined_features)
+        # производим дихотомизацию
+        bin_x = self.dichotomize_combined(x)
+        logist_reg = LogisticRegression()
+        logist_reg.fit(bin_x, y)
+        self.weights = logist_reg.coef_.ravel()[:num_features]
+        self.combined_weights = logist_reg.coef_.ravel()[num_features : num_features + num_combined_features]
+        self.intercept = logist_reg.intercept_[0]
+
+    def predict_proba(self, x, y):
+        # производим дихотомизацию
+        bin_x = self.dichotomize_combined(x)
+
+        z = np.dot(bin_x, np.r_[self.weights, self.combined_weights]) + self.intercept
+        probs = np.array([stable_sigmoid(value) for value in z])
+        return probs

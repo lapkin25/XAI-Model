@@ -90,3 +90,24 @@ def eps_max_ones_zeros_max_y(x_, y_, labels_, min_zero_count, eps):
             opt_rel = rel
 
     return opt_a, opt_b, opt_rel
+
+
+# Находит пороги a, b, почти максимизирующие отношение числа единиц к числу нулей
+#   в области {x >= a & y >= b}, чтобы минимизировать при этом порог b
+#   и значение отношения числа единиц к числу нулей
+#   отличалось от максимума менее чем на eps процентов
+# Возвращает числа a, b, rel
+#   a, b - пороги для x и y
+#   rel - отношение числа единиц к числу нулей при этих порогах
+def eps_max_ones_zeros_min_y(x_, y_, labels_, min_zero_count, eps):
+    _, _, max_rel, l = max_ones_zeros(x_, y_, labels_, min_zero_count, save_list=True)
+    opt_a = None
+    opt_b = None
+    opt_rel = None
+    for a, b, rel in l:
+        if opt_rel is None or rel > max_rel * (100 - eps) / 100 and b < opt_b:
+            opt_a = a
+            opt_b = b
+            opt_rel = rel
+
+    return opt_a, opt_b, opt_rel

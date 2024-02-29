@@ -3,7 +3,7 @@ from sklearn.linear_model import LogisticRegression
 from initial_model import InitialModel
 from adjust_intercept import AdjustIntercept
 from tpv_fpv import max_ones_zeros, eps_max_ones_zeros_min_x,\
-    eps_max_ones_zeros_max_y
+    eps_max_ones_zeros_max_y, eps_max_ones_zeros_min_y
 from calc_functions import stable_sigmoid
 
 
@@ -60,8 +60,8 @@ class AdjustedModel:
                 xk = x[selection, k]
                 labels = y[selection]
                 # находим пороги, обеспечивающие максимум TPV/FPV
-                #xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
-                xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_max_y(xk, logit1, labels, 10, eps=8.0)
+                xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
+                #xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_y(xk, logit1, labels, 10, eps=8.0)
                 # обновляем порог и вес для k-го признака
                 self.cutoffs[k] = xk_cutoff
                 self.weights[k] = logit_threshold - min_logit

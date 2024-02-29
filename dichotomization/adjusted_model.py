@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn import metrics as sklearn_metrics
 from sklearn.linear_model import LogisticRegression
 from initial_model import InitialModel
 from adjust_intercept import AdjustIntercept
@@ -13,7 +14,7 @@ class AdjustedModel:
         self.weights = None
         self.intercept = None
 
-    def fit(self, x, y):
+    def fit(self, x, y, verbose=False):
         data_size, num_features = x.shape[0], x.shape[1]
         initial_model = InitialModel()
         initial_model.fit(x, y)
@@ -38,7 +39,7 @@ class AdjustedModel:
         #     выбрав вес, включаем i-й признак с выбранными порогом и весом
         #     подстраиваем интерсепт после обновления весов и порогов
 
-        num_iter = 50
+        num_iter = 20
         p_threshold = 0.05
         logit_threshold = stable_sigmoid(p_threshold)
         # TODO: передать порог (сейчас 5%) в качестве входного параметра
@@ -70,10 +71,23 @@ class AdjustedModel:
             # настраиваем интерсепт в конце каждой итерации
             bin_x = self.dichotomize(x)
             self.intercept = AdjustIntercept(self.weights, self.intercept).fit(bin_x, y)
-            print("Пороги:", self.cutoffs)
-            print("Веса:", self.weights)
-            print("Интерсепт:", self.intercept)
+            if verbose:
+                print("Пороги:", self.cutoffs)
+                print("Веса:", self.weights)
+                print("Интерсепт:", self.intercept)
 
+            # настраиваем веса и интерсепт, обучая логистическую регрессию
+            self.fit_logistic(x, y)
+            
+            if verbose:
+                print("После обучения логистической регрессии:")
+                print("Веса:", self.weights)
+                print("Интерсепт:", self.intercept)
+            # вычисляем AUC
+            probs = self.predict_proba(x, y)
+            auc = sklearn_metrics.roc_auc_score(y, probs)
+            if verbose:
+                print("AUC:", auc)
 
     # взять веса и интерсепт из логистической регрессии при заданных порогах
     def fit_logistic(self, x, y):

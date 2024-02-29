@@ -54,7 +54,7 @@ print("=" * 10 + "\nНастроенная модель")
 print("Пороги:")
 for k, feature_name in enumerate(predictors):
     val = data.get_coord(feature_name, adjusted_model.cutoffs[k])
-    s = '<' if feature_name in invert_predictors else '>'
+    s = '≤' if feature_name in invert_predictors else '≥'
     print(feature_name, " ", s, val, sep='')
 
 print("Веса:", adjusted_model.weights)

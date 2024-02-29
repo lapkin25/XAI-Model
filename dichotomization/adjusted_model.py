@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from initial_model import InitialModel
+from adjust_intercept import AdjustIntercept
 from calc_functions import stable_sigmoid
 
 
@@ -34,6 +35,17 @@ class AdjustedModel:
         #     высота пороговой области - это и будет вес i-го признака
         #     выбрав вес, включаем i-й признак с выбранными порогом и весом
         #     подстраиваем интерсепт после обновления весов и порогов
+
+        num_iter = 10
+        for it in range(num_iter):
+            for k in range(num_features):
+                # работаем с k-м признаком
+                weights1 = np.delete(self.weights, k)
+                x1 = np.delete(x, k, axis=1)
+                intercept1 = AdjustIntercept(weights1, 0).fit(x1, y)
+                # значения решающей функции для каждой точки
+
+
 
 
 

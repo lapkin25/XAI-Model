@@ -44,7 +44,7 @@ class AdjustedModel:
         # TODO: передать порог (сейчас 5%) в качестве входного параметра
         for it in range(num_iter):
             print("Iteration", it + 1)
-            for k in range(num_features):
+            for k in np.random.permutation(num_features):  #range(num_features):
                 # производим дихотомизацию
                 bin_x = self.dichotomize(x)
                 # исключаем k-й признак

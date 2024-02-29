@@ -116,3 +116,4 @@ class AdjustedModel:
         z = np.dot(bin_x, self.weights) + self.intercept
         probs = np.array([stable_sigmoid(value) for value in z])
         return probs
+    

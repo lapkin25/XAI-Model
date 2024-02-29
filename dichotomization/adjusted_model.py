@@ -37,13 +37,29 @@ class AdjustedModel:
         #     подстраиваем интерсепт после обновления весов и порогов
 
         num_iter = 10
+        p_threshold = 0.05
+        # TODO: передать порог (сейчас 5%) в качестве входного параметра
         for it in range(num_iter):
+            print("Iteration", it + 1)
             for k in range(num_features):
-                # работаем с k-м признаком
+                # производим дихотомизацию
+                bin_x = self.dichotomize(x)
+                # исключаем k-й признак
                 weights1 = np.delete(self.weights, k)
-                x1 = np.delete(x, k, axis=1)
-                intercept1 = AdjustIntercept(weights1, 0).fit(x1, y)
+                bin_x1 = np.delete(bin_x, k, axis=1)
+                intercept1 = AdjustIntercept(weights1, self.intercept).fit(bin_x1, y)
                 # значения решающей функции для каждой точки
+                p = np.array([stable_sigmoid(intercept1
+                    + np.dot(weights1, bin_x1[i])) for i in range(data_size)])
+                # выделяем пороговую область
+                selection = p < p_threshold
+                p1 = p[selection]
+                xk = bin_x[selection, k]
+
+                # интерсепт пока не трогаем, потому что
+                #   для следующего признака он настраивается заново
+
+            # не забыть настроить интерсепт в конце каждой итерации
 
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.optimize import minimize
-from calc_functions import stable_sigmoid, deriv_sigmoid
+from calc_functions import stable_sigmoid
 
 
 # Модель с заданными, фиксированными весовыми коэффициентами
@@ -21,22 +21,13 @@ class AdjustIntercept:
                 z = w0 + np.dot(self.weights, x[i])  # аргумент сигмоиды
                 yp = stable_sigmoid(z)  # предсказание выхода
                 y_pred[i] = yp
-                # factor - множитель при производной решающей функции по параметру
-                if y[i] == 0:
-                    factor = -1 / (1 - yp)
-                elif y[i] == 1:
-                    factor = 1 / yp
-                else:
-                    raise
-                factor /= - data_size
-                d_sigmoid_features = deriv_sigmoid(z)
-                df += d_sigmoid_features * factor
+                df += (yp - y[i]) / data_size
             f = self.objective(y, y_pred)
             return f, df
 
         optim_res = minimize(f_and_df, self.intercept, jac=True)
         self.intercept = optim_res.x
-        return self.intercept
+        return self.intercept[0]
 
     def objective(self, y, y_pred):
         y_one_loss = y * np.log(y_pred + 1e-9)

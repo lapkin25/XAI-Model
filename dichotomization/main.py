@@ -1,9 +1,10 @@
+import numpy as np
 from read_data import Data
 from sklearn.linear_model import LogisticRegression
-from initial_model import InitialModel
-import numpy as np
 from sklearn import metrics as sklearn_metrics
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from initial_model import InitialModel
+from adjusted_model import AdjustedModel
+from model_testing import test_model
 
 
 def find_predictors_to_invert(data, predictors):
@@ -29,10 +30,9 @@ data.prepare(predictors, "Dead", invert_predictors)
 threshold = 0.05
 
 initial_model = InitialModel()
-"""
+
 initial_model.fit(data.x, data.y)
 print("Начальная модель")
-#print("Пороги:", initial_model.cutoffs)
 print("Пороги:")
 for k, feature_name in enumerate(predictors):
     val = data.get_coord(feature_name, initial_model.cutoffs[k])
@@ -45,25 +45,38 @@ p = initial_model.predict_proba(data.x, data.y)
 y_pred = np.where(p >= 0.05, 1, 0)
 auc = sklearn_metrics.roc_auc_score(data.y, p)
 print("AUC:", auc)
-"""
 
-print("Кросс-валидация")
-skf = StratifiedKFold(n_splits=8, shuffle=True, random_state=123)
-for i, (train_index, test_index) in enumerate(skf.split(data.x, data.y)):
-    print(f"Fold {i}:")
-    x_train = data.x[train_index, :]
-    y_train = data.y[train_index]
-    x_test = data.x[test_index, :]
-    y_test = data.y[test_index]
-    initial_model.fit(x_train, y_train)
-    p = initial_model.predict_proba(x_test, y_test)
-    auc = sklearn_metrics.roc_auc_score(y_test, p)
-    print("AUC:", auc)
+test_model(initial_model, data)
 
-print("Итоговое тестирование")
-x_train, x_test, y_train, y_test =\
-    train_test_split(data.x, data.y, test_size=0.2, random_state=123, stratify=data.y)
-initial_model.fit(x_train, y_train)
-p = initial_model.predict_proba(x_test, y_test)
-auc = sklearn_metrics.roc_auc_score(y_test, p)
+adjusted_model = AdjustedModel()
+adjusted_model.fit(data.x, data.y)
+print("=" * 10 + "\nНастроенная модель")
+print("Пороги:")
+for k, feature_name in enumerate(predictors):
+    val = data.get_coord(feature_name, adjusted_model.cutoffs[k])
+    s = '<' if feature_name in invert_predictors else '>'
+    print(feature_name, " ", s, val, sep='')
+
+print("Веса:", adjusted_model.weights)
+print("Интерсепт:", adjusted_model.intercept)
+p = adjusted_model.predict_proba(data.x, data.y)
+y_pred = np.where(p >= 0.05, 1, 0)
+# TODO: вывести матрицу неточностей
+auc = sklearn_metrics.roc_auc_score(data.y, p)
 print("AUC:", auc)
+
+test_model(adjusted_model, data)
+
+adjusted_model.fit_logistic(data.x, data.y)
+print("После обучения логистической регрессии при заданных порогах:")
+print("Веса:", adjusted_model.weights)
+print("Интерсепт:", adjusted_model.intercept)
+p = adjusted_model.predict_proba(data.x, data.y)
+y_pred = np.where(p >= 0.05, 1, 0)
+# TODO: вывести матрицу неточностей
+auc = sklearn_metrics.roc_auc_score(data.y, p)
+print("AUC:", auc)
+
+
+# TODO: унаследовать AdjustedModel и InitialModel от класса Model,
+#   вынести повторяющийся код в базовый класс

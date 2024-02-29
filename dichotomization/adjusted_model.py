@@ -1,4 +1,7 @@
+import numpy as np
+from sklearn.linear_model import LogisticRegression
 from initial_model import InitialModel
+from calc_functions import stable_sigmoid
 
 
 class AdjustedModel:
@@ -33,26 +36,29 @@ class AdjustedModel:
         #     подстраиваем интерсепт после обновления весов и порогов
 
 
+
+
+
+    # взять веса и интерсепт из логистической регрессии при заданных порогах
+    def fit_logistic(self, x, y):
         # производим дихотомизацию
-#        bin_x = self.dichotomize(x)
+        bin_x = self.dichotomize(x)
+        logist_reg = LogisticRegression()
+        logist_reg.fit(bin_x, y)
+        self.weights = logist_reg.coef_.ravel()
+        self.intercept = logist_reg.intercept_[0]
 
-        # обучаем логистическую регрессию на данных с бинарными признаками
- #       logist_reg = LogisticRegression()
- #       logist_reg.fit(bin_x, y)
- #       self.weights = logist_reg.coef_.ravel()
- #       self.intercept = logist_reg.intercept_[0]
+    def dichotomize(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        bin_x = x.copy()
+        for k in range(num_features):
+            bin_x[:, k] = bin_x[:, k] >= self.cutoffs[k]
+        return bin_x
 
-  #  def dichotomize(self, x):
-  #      data_size, num_features = x.shape[0], x.shape[1]
-  #      bin_x = x.copy()
-  #      for k in range(num_features):
-  #          bin_x[:, k] = bin_x[:, k] > self.cutoffs[k]
-  #      return bin_x
-
-  #  def predict_proba(self, x, y):
+    def predict_proba(self, x, y):
         # производим дихотомизацию
-  #      bin_x = self.dichotomize(x)
+        bin_x = self.dichotomize(x)
 
-   #     z = np.dot(bin_x, self.weights) + self.intercept
-   #     probs = np.array([stable_sigmoid(value) for value in z])
-   #     return probs
+        z = np.dot(bin_x, self.weights) + self.intercept
+        probs = np.array([stable_sigmoid(value) for value in z])
+        return probs

@@ -1,6 +1,7 @@
 import numpy as np
 from sortedcontainers import SortedList
 
+
 # Находит пороги a, b, максимизирующие отношение числа единиц к числу нулей
 #   в области {x >= a & y >= b}
 #   при условии, что число нулей в этой области не меньше min_zero_count

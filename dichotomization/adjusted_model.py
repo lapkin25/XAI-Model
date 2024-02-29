@@ -39,6 +39,7 @@ class AdjustedModel:
 
         num_iter = 20
         p_threshold = 0.05
+        logit_threshold = stable_sigmoid(p_threshold)
         # TODO: передать порог (сейчас 5%) в качестве входного параметра
         for it in range(num_iter):
             print("Iteration", it + 1)
@@ -50,18 +51,18 @@ class AdjustedModel:
                 bin_x1 = np.delete(bin_x, k, axis=1)
                 intercept1 = AdjustIntercept(weights1, self.intercept).fit(bin_x1, y)
                 # значения решающей функции для каждой точки
-                p = np.array([stable_sigmoid(intercept1
-                    + np.dot(weights1, bin_x1[i])) for i in range(data_size)])
+                logit = np.array([intercept1 + np.dot(weights1, bin_x1[i])
+                                  for i in range(data_size)])
                 # выделяем пороговую область
-                selection = p < p_threshold
-                p1 = p[selection]
+                selection = logit < logit_threshold
+                logit1 = logit[selection]
                 xk = x[selection, k]
                 labels = y[selection]
                 # находим пороги, обеспечивающие максимум TPV/FPV
-                xk_cutoff, min_p, max_rel = max_ones_zeros(xk, p1, labels, 10)
+                xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
                 # обновляем порог и вес для k-го признака
                 self.cutoffs[k] = xk_cutoff
-                self.weights[k] = p_threshold - min_p
+                self.weights[k] = logit_threshold - min_logit
                 # интерсепт пока не трогаем, потому что
                 #   для следующего признака он настраивается заново
             # настраиваем интерсепт в конце каждой итерации

@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from initial_model import InitialModel
 from adjust_intercept import AdjustIntercept
+from tpv_fpv import max_ones_zeros
 from calc_functions import stable_sigmoid
 
 
@@ -36,7 +37,7 @@ class AdjustedModel:
         #     выбрав вес, включаем i-й признак с выбранными порогом и весом
         #     подстраиваем интерсепт после обновления весов и порогов
 
-        num_iter = 10
+        num_iter = 20
         p_threshold = 0.05
         # TODO: передать порог (сейчас 5%) в качестве входного параметра
         for it in range(num_iter):
@@ -54,17 +55,21 @@ class AdjustedModel:
                 # выделяем пороговую область
                 selection = p < p_threshold
                 p1 = p[selection]
-                xk = bin_x[selection, k]
-
+                xk = x[selection, k]
+                labels = y[selection]
+                # находим пороги, обеспечивающие максимум TPV/FPV
+                xk_cutoff, min_p, max_rel = max_ones_zeros(xk, p1, labels, 10)
+                # обновляем порог и вес для k-го признака
+                self.cutoffs[k] = xk_cutoff
+                self.weights[k] = p_threshold - min_p
                 # интерсепт пока не трогаем, потому что
                 #   для следующего признака он настраивается заново
-
-            # не забыть настроить интерсепт в конце каждой итерации
-
-
-
-
-
+            # настраиваем интерсепт в конце каждой итерации
+            bin_x = self.dichotomize(x)
+            self.intercept = AdjustIntercept(self.weights, self.intercept).fit(bin_x, y)
+            print("Пороги:", self.cutoffs)
+            print("Веса:", self.weights)
+            print("Интерсепт:", self.intercept)
 
 
     # взять веса и интерсепт из логистической регрессии при заданных порогах

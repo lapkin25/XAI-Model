@@ -146,6 +146,8 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
 
     def make_iteration_combined(self, x, y, logit_threshold, verbose):
         data_size, num_features = x.shape[0], x.shape[1]
+        num_combined_features = len(self.combined_features)
+        # перенастраиваем веса и пороги индивидуальных признаков
         for k in np.random.permutation(num_features):
             # производим дихотомизацию
             bin_x = self.dichotomize_combined(x)
@@ -169,11 +171,40 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             self.weights[k] = logit_threshold - min_logit
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
+        # перенастраиваем веса и пороги комбинированных признаков
+        for s in np.random.permutation(num_combined_features):
+            # производим дихотомизацию
+            bin_x = self.dichotomize_combined(x)
+            # исключаем s-й комбинированный признак
+            combined_weights1 = np.delete(self.combined_weights, s)
+            bin_x1 = np.delete(bin_x, num_features + s, axis=1)
+            intercept1 = AdjustIntercept(np.r_[self.weights, combined_weights1], self.intercept).fit(bin_x1, y)
+            # значения решающей функции для каждой точки
+            logit = np.array([intercept1 + np.dot(np.r_[self.weights, combined_weights1], bin_x1[i])
+                              for i in range(data_size)])
+            # параметры s-го комбинированного признака
+            k = self.combined_features[s][0]
+            j = self.combined_features[s][1]
+            # выделяем пороговую область
+            selection = logit < logit_threshold
+            selection_k = bin_x[:, k] == 1
+            logit1 = logit[selection & selection_k]
+            labels = y[selection & selection_k]
+            xj = x[selection & selection_k, j]
+            # находим пороги, обеспечивающие максимум TPV/FPV
+            xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
+            # обновляем порог и вес для s-го признака
+            self.combined_features[s] = (k, j, xj_cutoff)
+            self.combined_weights[s] = logit_threshold - min_logit
+            # интерсепт пока не трогаем, потому что
+            #   для следующего признака он настраивается заново
         # настраиваем интерсепт в конце каждой итерации
         bin_x = self.dichotomize_combined(x)
         self.intercept = AdjustIntercept(np.r_[self.weights, self.combined_weights], self.intercept).fit(bin_x, y)
         if verbose:
             print("Пороги:", self.cutoffs)
             print("Веса:", self.weights)
+            print("Комбинированные признаки:", self.combined_features)
+            print("Веса комбинированных признаков:", self.combined_weights)
             print("Интерсепт:", self.intercept)
         # TODO: перенастроить также и добавленные комбинированные признаки

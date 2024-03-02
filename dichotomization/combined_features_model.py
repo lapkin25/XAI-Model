@@ -140,4 +140,40 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             self.intercept = AdjustIntercept(np.r_[self.weights, self.combined_weights],
                                              self.intercept).fit(bin_x, y)
             # TODO: проделать вспомогательные итерации по настройке весов
+            for it1 in range(num_additional_iter):
+                print("Additional iteration", it1 + 1)
+                self.make_iteration_combined(x, y, logit_threshold, verbose)
 
+    def make_iteration_combined(self, x, y, logit_threshold, verbose):
+        data_size, num_features = x.shape[0], x.shape[1]
+        for k in np.random.permutation(num_features):
+            # производим дихотомизацию
+            bin_x = self.dichotomize_combined(x)
+            # исключаем k-й признак
+            weights1 = np.delete(self.weights, k)
+            bin_x1 = np.delete(bin_x, k, axis=1)
+            intercept1 = AdjustIntercept(np.r_[weights1, self.combined_weights], self.intercept).fit(bin_x1, y)
+            # значения решающей функции для каждой точки
+            logit = np.array([intercept1 + np.dot(np.r_[weights1, self.combined_weights], bin_x1[i])
+                              for i in range(data_size)])
+            # выделяем пороговую область
+            selection = logit < logit_threshold
+            logit1 = logit[selection]
+            xk = x[selection, k]
+            labels = y[selection]
+            # находим пороги, обеспечивающие максимум TPV/FPV
+            xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
+            # xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_y(xk, logit1, labels, 10, eps=8.0)
+            # обновляем порог и вес для k-го признака
+            self.cutoffs[k] = xk_cutoff
+            self.weights[k] = logit_threshold - min_logit
+            # интерсепт пока не трогаем, потому что
+            #   для следующего признака он настраивается заново
+        # настраиваем интерсепт в конце каждой итерации
+        bin_x = self.dichotomize_combined(x)
+        self.intercept = AdjustIntercept(np.r_[self.weights, self.combined_weights], self.intercept).fit(bin_x, y)
+        if verbose:
+            print("Пороги:", self.cutoffs)
+            print("Веса:", self.weights)
+            print("Интерсепт:", self.intercept)
+        # TODO: перенастроить также и добавленные комбинированные признаки

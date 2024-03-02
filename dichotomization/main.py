@@ -80,6 +80,8 @@ print("AUC:", auc)
 
 test_model(adjusted_model, data)
 
+# TODO: вызвать fit_logistic_combined
+"""
 adjusted_model.fit_logistic(data.x, data.y)
 print("После обучения логистической регрессии при заданных порогах:")
 print("Веса:", adjusted_model.weights)
@@ -89,7 +91,7 @@ y_pred = np.where(p >= 0.05, 1, 0)
 # TODO: вывести матрицу неточностей
 auc = sklearn_metrics.roc_auc_score(data.y, p)
 print("AUC:", auc)
-
+"""
 
 # TODO: унаследовать AdjustedModel и InitialModel от класса Model,
 #   вынести повторяющийся код в базовый класс

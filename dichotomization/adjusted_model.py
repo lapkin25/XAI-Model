@@ -3,9 +3,8 @@ from sklearn import metrics as sklearn_metrics
 from sklearn.linear_model import LogisticRegression
 from initial_model import InitialModel
 from adjust_intercept import AdjustIntercept
-from tpv_fpv import max_ones_zeros, eps_max_ones_zeros_min_x,\
-    eps_max_ones_zeros_max_y, eps_max_ones_zeros_min_y
-from calc_functions import stable_sigmoid
+from tpv_fpv import max_ones_zeros
+from calc_functions import stable_sigmoid, inv_sigmoid
 
 
 class AdjustedModel:
@@ -47,7 +46,7 @@ class AdjustedModel:
             print("Iteration", it + 1)
             self.make_iteration(x, y, verbose, p_threshold=p_threshold)
 
-    def make_iteration(self, x, y, verbose, logistic_weights=False, omega=0.1, p_threshold=0.05):
+    def make_iteration(self, x, y, verbose, logistic_weights=False, omega=1.0, p_threshold=0.05):
         data_size, num_features = x.shape[0], x.shape[1]
         # p_threshold = 0.05  # TODO: передать как входной параметр
         for k in np.random.permutation(num_features):  # range(num_features):
@@ -65,6 +64,7 @@ class AdjustedModel:
             # выделяем пороговую область
             #selection = logit < logit_threshold
             p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
+            logit_threshold = inv_sigmoid(p_threshold)
             selection = p < p_threshold
             logit1 = logit[selection]
             xk = x[selection, k]
@@ -78,7 +78,7 @@ class AdjustedModel:
                 self.weights[k] = 0.0
             else:
                 self.cutoffs[k] = omega * xk_cutoff + (1 - omega) * old_xk_cutoff
-                self.weights[k] = omega * (np.max(logit1) - min_logit) + (1 - omega) * old_wk
+                self.weights[k] = omega * (logit_threshold - min_logit) + (1 - omega) * old_wk
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
         # настраиваем интерсепт в конце каждой итерации

@@ -3,8 +3,8 @@ from sklearn.linear_model import LogisticRegression
 from initial_model import InitialModel
 from adjusted_model import AdjustedModel
 from adjust_intercept import AdjustIntercept
-from calc_functions import stable_sigmoid
-from tpv_fpv import max_ones_zeros, eps_max_ones_zeros_min_x
+from calc_functions import stable_sigmoid, inv_sigmoid
+from tpv_fpv import max_ones_zeros
 
 
 class CombinedFeaturesModel(AdjustedModel):
@@ -22,6 +22,7 @@ class CombinedFeaturesModel(AdjustedModel):
         logit = np.array([self.intercept +
                           np.dot(self.weights, bin_x[i]) for i in range(data_size)])
         p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
+        logit_threshold = inv_sigmoid(p_threshold)
         #selection = logit < logit_threshold
         selection = p < p_threshold
         self.combined_features = []
@@ -40,7 +41,7 @@ class CombinedFeaturesModel(AdjustedModel):
                     # находим пороги, обеспечивающие максимум TPV/FPV
                     xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
                     if verbose:
-                        print("k =", k, "j =", j, "b_j =", xj_cutoff, "  w =", np.max(logit1) - min_logit, "  rel =",  max_rel)
+                        print("k =", k, "j =", j, "b_j =", xj_cutoff, "  w =", logit_threshold - min_logit, "  rel =",  max_rel)
                     # TODO: сначала для упрощения просто взять найденные пороги xj_cutoff
                     #   и добавить комбинированные признаки с этими порогами, а веса найти, обучив логистическую регрессию
                     combined_features_data.append((k, j, xj_cutoff, max_rel))
@@ -84,7 +85,7 @@ class CombinedFeaturesModel(AdjustedModel):
 
 
 class CombinedFeaturesModel2(CombinedFeaturesModel):
-    def fit(self, x, y, verbose=True, logistic_weights=False, p_threshold=0.05):
+    def fit(self, x, y, verbose=True, logistic_weights=False, p_threshold=0.05, omega=1.0):
         data_size, num_features = x.shape[0], x.shape[1]
         initial_model = InitialModel()
         initial_model.fit(x, y)
@@ -97,7 +98,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
         #logit_threshold = stable_sigmoid(p_threshold)
         for it in range(num_iter):
             print("Iteration", it + 1)
-            self.make_iteration(x, y, verbose, p_threshold=p_threshold)
+            self.make_iteration(x, y, verbose, p_threshold=p_threshold, omega=omega)
 
         self.combined_features = []
         self.combined_weights = []
@@ -111,6 +112,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
                               np.dot(np.r_[self.weights, self.combined_weights], bin_x[i])
                               for i in range(data_size)])
             #selection = logit < logit_threshold
+            logit_threshold = inv_sigmoid(p_threshold)
             p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
             selection = p < p_threshold
             best_max_rel = None
@@ -131,9 +133,9 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
                         xj = x[selection & selection_k, j]
                         # находим пороги, обеспечивающие максимум TPV/FPV
                         xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
-                        if (best_max_rel is None) or ((max_rel is not None) and max_rel > best_max_rel):
+                        if (best_max_rel is None) or ((min_logit is not None) and max_rel > best_max_rel):
                             best_max_rel = max_rel
-                            best_wj = np.max(logit1) - min_logit
+                            best_wj = logit_threshold - min_logit
                             best_xj_cutoff = xj_cutoff
                             best_k = k
                             best_j = j
@@ -146,11 +148,12 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             # TODO: проделать вспомогательные итерации по настройке весов
             for it1 in range(num_additional_iter):
                 print("Additional iteration", it1 + 1)
-                self.make_iteration_combined(x, y, verbose, p_threshold=p_threshold)
+                self.make_iteration_combined(x, y, verbose, p_threshold=p_threshold, omega=omega)
                 if logistic_weights:
                     self.fit_logistic_combined(x, y)
         # оптимизируем веса
-        self.fit_logistic_combined(x, y)
+        if logistic_weights:
+            self.fit_logistic_combined(x, y)
 
     def make_iteration_combined(self, x, y, verbose, omega=0.1, p_threshold=0.05):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -168,6 +171,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             # значения решающей функции для каждой точки
             logit = np.array([intercept1 + np.dot(np.r_[weights1, self.combined_weights], bin_x1[i])
                               for i in range(data_size)])
+            logit_threshold = inv_sigmoid(p_threshold)
             p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
             # выделяем пороговую область
             #selection = logit < logit_threshold
@@ -176,12 +180,12 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             xk = x[selection, k]
             labels = y[selection]
             # находим пороги, обеспечивающие максимум TPV/FPV
-            #xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
-            xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_x(xk, logit1, labels, 10, eps=6.0)
+            xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
+            #xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_x(xk, logit1, labels, 10, eps=6.0)
             # xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_y(xk, logit1, labels, 10, eps=8.0)
             # обновляем порог и вес для k-го признака
             self.cutoffs[k] = omega * xk_cutoff + (1 - omega) * old_xk_cutoff
-            self.weights[k] = omega * (np.max(logit1) - min_logit) + (1 - omega) * old_wk
+            self.weights[k] = omega * (logit_threshold - min_logit) + (1 - omega) * old_wk
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
         # перенастраиваем веса и пороги комбинированных признаков
@@ -207,8 +211,8 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             labels = y[selection & selection_k]
             xj = x[selection & selection_k, j]
             # находим пороги, обеспечивающие максимум TPV/FPV
-            #xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
-            xj_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_x(xj, logit1, labels, 5, eps=6.0)
+            xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
+            #xj_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_x(xj, logit1, labels, 5, eps=6.0)
             # обновляем порог и вес для s-го признака
             if xj_cutoff is None:
                 self.combined_features[s] = (k, j, 0.0)

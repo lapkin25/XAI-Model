@@ -43,7 +43,7 @@ for k, feature_name in enumerate(predictors):
 print("Веса:", initial_model.weights)
 print("Интерсепт:", initial_model.intercept)
 p = initial_model.predict_proba(data.x, data.y)
-y_pred = np.where(p >= 0.05, 1, 0)
+y_pred = np.where(p >= threshold, 1, 0)
 auc = sklearn_metrics.roc_auc_score(data.y, p)
 print("AUC:", auc)
 
@@ -73,7 +73,7 @@ print("Веса:", adjusted_model.weights)
 print("Комбинированные веса:", adjusted_model.combined_weights)
 print("Интерсепт:", adjusted_model.intercept)
 p = adjusted_model.predict_proba(data.x, data.y)
-y_pred = np.where(p >= 0.05, 1, 0)
+y_pred = np.where(p >= threshold, 1, 0)
 # TODO: вывести матрицу неточностей
 auc = sklearn_metrics.roc_auc_score(data.y, p)
 print("AUC:", auc)

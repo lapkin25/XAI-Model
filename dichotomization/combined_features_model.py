@@ -13,10 +13,10 @@ class CombinedFeaturesModel(AdjustedModel):
         self.combined_features = None  # список троек (k, j, xj_cutoff)
         self.combined_weights = None
 
-    def fit(self, x, y, verbose=True):
+    def fit(self, x, y, verbose=True, p_threshold=0.05):
         super().fit(x, y, verbose)
         data_size, num_features = x.shape[0], x.shape[1]
-        p_threshold = 0.05  # TODO: передать как входной параметр
+        #p_threshold = 0.05  # TODO: передать как входной параметр
         # logit_threshold = stable_sigmoid(p_threshold)  - грубая ошибка!
         bin_x = self.dichotomize(x)
         logit = np.array([self.intercept +
@@ -84,7 +84,7 @@ class CombinedFeaturesModel(AdjustedModel):
 
 
 class CombinedFeaturesModel2(CombinedFeaturesModel):
-    def fit(self, x, y, verbose=True, logistic_weights=False):
+    def fit(self, x, y, verbose=True, logistic_weights=False, p_threshold=0.05):
         data_size, num_features = x.shape[0], x.shape[1]
         initial_model = InitialModel()
         initial_model.fit(x, y)
@@ -93,11 +93,11 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
         self.intercept = initial_model.intercept
 
         num_iter = 20
-        p_threshold = 0.05
-        logit_threshold = stable_sigmoid(p_threshold)
+        #p_threshold = 0.05
+        #logit_threshold = stable_sigmoid(p_threshold)
         for it in range(num_iter):
             print("Iteration", it + 1)
-            self.make_iteration(x, y, logit_threshold, verbose)
+            self.make_iteration(x, y, verbose, p_threshold=p_threshold)
 
         self.combined_features = []
         self.combined_weights = []
@@ -110,7 +110,9 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             logit = np.array([self.intercept +
                               np.dot(np.r_[self.weights, self.combined_weights], bin_x[i])
                               for i in range(data_size)])
-            selection = logit < logit_threshold
+            #selection = logit < logit_threshold
+            p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
+            selection = p < p_threshold
             best_max_rel = None
             best_wj = None
             best_xj_cutoff = None
@@ -131,7 +133,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
                         xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
                         if (best_max_rel is None) or ((max_rel is not None) and max_rel > best_max_rel):
                             best_max_rel = max_rel
-                            best_wj = logit_threshold - min_logit
+                            best_wj = np.max(logit1) - min_logit
                             best_xj_cutoff = xj_cutoff
                             best_k = k
                             best_j = j
@@ -144,13 +146,13 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             # TODO: проделать вспомогательные итерации по настройке весов
             for it1 in range(num_additional_iter):
                 print("Additional iteration", it1 + 1)
-                self.make_iteration_combined(x, y, logit_threshold, verbose)
+                self.make_iteration_combined(x, y, verbose, p_threshold=p_threshold)
                 if logistic_weights:
                     self.fit_logistic_combined(x, y)
         # оптимизируем веса
         self.fit_logistic_combined(x, y)
 
-    def make_iteration_combined(self, x, y, logit_threshold, verbose, omega=0.1):
+    def make_iteration_combined(self, x, y, verbose, omega=0.1, p_threshold=0.05):
         data_size, num_features = x.shape[0], x.shape[1]
         num_combined_features = len(self.combined_features)
         # перенастраиваем веса и пороги индивидуальных признаков
@@ -166,8 +168,10 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             # значения решающей функции для каждой точки
             logit = np.array([intercept1 + np.dot(np.r_[weights1, self.combined_weights], bin_x1[i])
                               for i in range(data_size)])
+            p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
             # выделяем пороговую область
-            selection = logit < logit_threshold
+            #selection = logit < logit_threshold
+            selection = p < p_threshold
             logit1 = logit[selection]
             xk = x[selection, k]
             labels = y[selection]
@@ -177,7 +181,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             # xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_y(xk, logit1, labels, 10, eps=8.0)
             # обновляем порог и вес для k-го признака
             self.cutoffs[k] = omega * xk_cutoff + (1 - omega) * old_xk_cutoff
-            self.weights[k] = omega * (logit_threshold - min_logit) + (1 - omega) * old_wk
+            self.weights[k] = omega * (np.max(logit1) - min_logit) + (1 - omega) * old_wk
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
         # перенастраиваем веса и пороги комбинированных признаков
@@ -191,11 +195,13 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             # значения решающей функции для каждой точки
             logit = np.array([intercept1 + np.dot(np.r_[self.weights, combined_weights1], bin_x1[i])
                               for i in range(data_size)])
+            p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
             # параметры s-го комбинированного признака
             k = self.combined_features[s][0]
             j = self.combined_features[s][1]
             # выделяем пороговую область
-            selection = logit < logit_threshold
+            #selection = logit < logit_threshold
+            selection = p < p_threshold
             selection_k = bin_x[:, k] == 1
             logit1 = logit[selection & selection_k]
             labels = y[selection & selection_k]
@@ -209,7 +215,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
                 self.combined_weights[s] = 0.0
             else:
                 self.combined_features[s] = (k, j, xj_cutoff)
-                self.combined_weights[s] = logit_threshold - min_logit
+                self.combined_weights[s] = np.max(logit1) - min_logit
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
         # настраиваем интерсепт в конце каждой итерации

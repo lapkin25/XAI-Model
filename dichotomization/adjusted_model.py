@@ -14,7 +14,7 @@ class AdjustedModel:
         self.weights = None
         self.intercept = None
 
-    def fit(self, x, y, verbose=False):
+    def fit(self, x, y, verbose=False, p_threshold=0.05):
         data_size, num_features = x.shape[0], x.shape[1]
         initial_model = InitialModel()
         initial_model.fit(x, y)
@@ -40,16 +40,16 @@ class AdjustedModel:
         #     подстраиваем интерсепт после обновления весов и порогов
 
         num_iter = 20
-        p_threshold = 0.05
+        #p_threshold = 0.05
         #logit_threshold = stable_sigmoid(p_threshold)  - грубая ошибка!
         # TODO: передать порог (сейчас 5%) в качестве входного параметра
         for it in range(num_iter):
             print("Iteration", it + 1)
-            self.make_iteration(x, y, verbose)
+            self.make_iteration(x, y, verbose, p_threshold=p_threshold)
 
-    def make_iteration(self, x, y, verbose, logistic_weights=False, omega=0.1):
+    def make_iteration(self, x, y, verbose, logistic_weights=False, omega=0.1, p_threshold=0.05):
         data_size, num_features = x.shape[0], x.shape[1]
-        p_threshold = 0.05  # TODO: передать как входной параметр
+        # p_threshold = 0.05  # TODO: передать как входной параметр
         for k in np.random.permutation(num_features):  # range(num_features):
             # производим дихотомизацию
             bin_x = self.dichotomize(x)

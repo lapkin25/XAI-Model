@@ -17,11 +17,13 @@ class CombinedFeaturesModel(AdjustedModel):
         super().fit(x, y, verbose)
         data_size, num_features = x.shape[0], x.shape[1]
         p_threshold = 0.05  # TODO: передать как входной параметр
-        logit_threshold = stable_sigmoid(p_threshold)
+        # logit_threshold = stable_sigmoid(p_threshold)  - грубая ошибка!
         bin_x = self.dichotomize(x)
         logit = np.array([self.intercept +
                           np.dot(self.weights, bin_x[i]) for i in range(data_size)])
-        selection = logit < logit_threshold
+        p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
+        #selection = logit < logit_threshold
+        selection = p < p_threshold
         self.combined_features = []
         combined_features_data = []
         # выделяем пороговую область
@@ -38,7 +40,7 @@ class CombinedFeaturesModel(AdjustedModel):
                     # находим пороги, обеспечивающие максимум TPV/FPV
                     xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
                     if verbose:
-                        print("k =", k, "j =", j, "b_j =", xj_cutoff, "  w =", logit_threshold - min_logit, "  rel =",  max_rel)
+                        print("k =", k, "j =", j, "b_j =", xj_cutoff, "  w =", np.max(logit1) - min_logit, "  rel =",  max_rel)
                     # TODO: сначала для упрощения просто взять найденные пороги xj_cutoff
                     #   и добавить комбинированные признаки с этими порогами, а веса найти, обучив логистическую регрессию
                     combined_features_data.append((k, j, xj_cutoff, max_rel))

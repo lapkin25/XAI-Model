@@ -41,14 +41,15 @@ class AdjustedModel:
 
         num_iter = 20
         p_threshold = 0.05
-        logit_threshold = stable_sigmoid(p_threshold)
+        #logit_threshold = stable_sigmoid(p_threshold)  - грубая ошибка!
         # TODO: передать порог (сейчас 5%) в качестве входного параметра
         for it in range(num_iter):
             print("Iteration", it + 1)
-            self.make_iteration(x, y, logit_threshold, verbose)
+            self.make_iteration(x, y, verbose)
 
-    def make_iteration(self, x, y, logit_threshold, verbose, logistic_weights=False, omega=0.1):
+    def make_iteration(self, x, y, verbose, logistic_weights=False, omega=0.1):
         data_size, num_features = x.shape[0], x.shape[1]
+        p_threshold = 0.05  # TODO: передать как входной параметр
         for k in np.random.permutation(num_features):  # range(num_features):
             # производим дихотомизацию
             bin_x = self.dichotomize(x)
@@ -62,7 +63,9 @@ class AdjustedModel:
             logit = np.array([intercept1 + np.dot(weights1, bin_x1[i])
                               for i in range(data_size)])
             # выделяем пороговую область
-            selection = logit < logit_threshold
+            #selection = logit < logit_threshold
+            p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
+            selection = p < p_threshold
             logit1 = logit[selection]
             xk = x[selection, k]
             labels = y[selection]
@@ -70,8 +73,12 @@ class AdjustedModel:
             xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
             # xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_y(xk, logit1, labels, 10, eps=8.0)
             # обновляем порог и вес для k-го признака
-            self.cutoffs[k] = omega * xk_cutoff + (1 - omega) * old_xk_cutoff
-            self.weights[k] = omega * (logit_threshold - min_logit) + (1 - omega) * old_wk
+            if xk_cutoff is None:
+                self.cutoffs[k] = 0.0
+                self.weights[k] = 0.0
+            else:
+                self.cutoffs[k] = omega * xk_cutoff + (1 - omega) * old_xk_cutoff
+                self.weights[k] = omega * (np.max(logit1) - min_logit) + (1 - omega) * old_wk
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
         # настраиваем интерсепт в конце каждой итерации

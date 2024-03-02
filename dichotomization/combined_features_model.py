@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from initial_model import InitialModel
 from adjusted_model import AdjustedModel
+from adjust_intercept import AdjustIntercept
 from calc_functions import stable_sigmoid
 from tpv_fpv import max_ones_zeros
 
@@ -77,3 +79,65 @@ class CombinedFeaturesModel(AdjustedModel):
         z = np.dot(bin_x, np.r_[self.weights, self.combined_weights]) + self.intercept
         probs = np.array([stable_sigmoid(value) for value in z])
         return probs
+
+
+class CombinedFeaturesModel2(CombinedFeaturesModel):
+    def fit(self, x, y, verbose=True):
+        data_size, num_features = x.shape[0], x.shape[1]
+        initial_model = InitialModel()
+        initial_model.fit(x, y)
+        self.cutoffs = initial_model.cutoffs
+        self.weights = initial_model.weights
+        self.intercept = initial_model.intercept
+
+        num_iter = 20
+        p_threshold = 0.05
+        logit_threshold = stable_sigmoid(p_threshold)
+        for it in range(num_iter):
+            print("Iteration", it + 1)
+            self.make_iteration(x, y, logit_threshold, verbose)
+
+        self.combined_features = []
+        self.combined_weights = []
+        num_combined_iter = 10
+        num_additional_iter = 5
+        for it in range(num_combined_iter):
+            # добавляем дополнительный комбинированный признак
+            # для этого выбираем его из условия максимума TPV/FPV
+            bin_x = self.dichotomize_combined(x)
+            logit = np.array([self.intercept +
+                              np.dot(np.r_[self.weights, self.combined_weights], bin_x[i])
+                              for i in range(data_size)])
+            selection = logit < logit_threshold
+            best_max_rel = None
+            best_wj = None
+            best_xj_cutoff = None
+            best_k = None
+            best_j = None
+            # выделяем пороговую область
+            for k in range(num_features):
+                # пробуем добавить к k-му признаку какой-нибудь j-й,
+                # чтобы спрогнозировать единицы в области П∩{x_k > a_k}∩Ф
+                # с помощью фильтрующего свойства Ф = {x_j > b_j}
+                selection_k = bin_x[:, k] == 1
+                logit1 = logit[selection & selection_k]
+                labels = y[selection & selection_k]
+                for j in range(num_features):
+                    if j != k:
+                        xj = x[selection & selection_k, j]
+                        # находим пороги, обеспечивающие максимум TPV/FPV
+                        xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
+                        if best_max_rel is None or max_rel is not None and max_rel > best_max_rel:
+                            best_max_rel = max_rel
+                            best_wj = logit_threshold - min_logit
+                            best_xj_cutoff = xj_cutoff
+                            best_k = k
+                            best_j = j
+            self.combined_features.append((best_k, best_j, best_xj_cutoff))
+            self.combined_weights.append(best_wj)
+            # настраиваем интерсепт в конце каждой итерации
+            bin_x = self.dichotomize_combined(x)
+            self.intercept = AdjustIntercept(np.r_[self.weights, self.combined_weights],
+                                             self.intercept).fit(bin_x, y)
+            # TODO: проделать вспомогательные итерации по настройке весов
+

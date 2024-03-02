@@ -4,7 +4,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn import metrics as sklearn_metrics
 from initial_model import InitialModel
 from adjusted_model import AdjustedModel
-from combined_features_model import CombinedFeaturesModel
+from combined_features_model import CombinedFeaturesModel, CombinedFeaturesModel2
 from model_testing import test_model
 
 
@@ -49,7 +49,8 @@ print("AUC:", auc)
 
 test_model(initial_model, data)
 
-adjusted_model = CombinedFeaturesModel()  #AdjustedModel()
+#adjusted_model = CombinedFeaturesModel()  #AdjustedModel()
+adjusted_model = CombinedFeaturesModel2()
 adjusted_model.fit(data.x, data.y)
 print("=" * 10 + "\nНастроенная модель")
 print("Пороги:")

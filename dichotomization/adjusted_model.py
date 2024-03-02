@@ -47,7 +47,7 @@ class AdjustedModel:
             print("Iteration", it + 1)
             self.make_iteration(x, y, logit_threshold, verbose)
 
-    def make_iteration(self, x, y, logit_threshold, verbose):
+    def make_iteration(self, x, y, logit_threshold, verbose, logistic_weights=False):
         data_size, num_features = x.shape[0], x.shape[1]
         for k in np.random.permutation(num_features):  # range(num_features):
             # производим дихотомизацию
@@ -81,12 +81,12 @@ class AdjustedModel:
             print("Интерсепт:", self.intercept)
 
         # настраиваем веса и интерсепт, обучая логистическую регрессию
-        self.fit_logistic(x, y)
-
-        if verbose:
-            print("После обучения логистической регрессии:")
-            print("Веса:", self.weights)
-            print("Интерсепт:", self.intercept)
+        if logistic_weights:
+            self.fit_logistic(x, y)
+            if verbose:
+                print("После обучения логистической регрессии:")
+                print("Веса:", self.weights)
+                print("Интерсепт:", self.intercept)
         # вычисляем AUC
         """
         probs = self.predict_proba(x, y)

@@ -134,7 +134,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
                             best_k = k
                             best_j = j
             self.combined_features.append((best_k, best_j, best_xj_cutoff))
-            self.combined_weights.append(best_wj)
+            self.combined_weights = np.append(self.combined_weights, [best_wj])
             # настраиваем интерсепт в конце каждой итерации
             bin_x = self.dichotomize_combined(x)
             self.intercept = AdjustIntercept(np.r_[self.weights, self.combined_weights],

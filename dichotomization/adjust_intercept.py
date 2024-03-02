@@ -10,7 +10,7 @@ class AdjustIntercept:
         self.weights = weights
         self.intercept = initial_intercept
 
-    def fit(self, x, y, use_sensitivity=True):
+    def fit(self, x, y, use_sensitivity=False):
         data_size, num_features = x.shape[0], x.shape[1]
 
         def f_and_df(w0):

@@ -47,7 +47,7 @@ class AdjustedModel:
             print("Iteration", it + 1)
             self.make_iteration(x, y, logit_threshold, verbose)
 
-    def make_iteration(self, x, y, logit_threshold, verbose, logistic_weights=False, omega=0.5):
+    def make_iteration(self, x, y, logit_threshold, verbose, logistic_weights=False, omega=0.1):
         data_size, num_features = x.shape[0], x.shape[1]
         for k in np.random.permutation(num_features):  # range(num_features):
             # производим дихотомизацию

@@ -148,7 +148,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
         # оптимизируем веса
         self.fit_logistic_combined(x, y)
 
-    def make_iteration_combined(self, x, y, logit_threshold, verbose, omega=0.5):
+    def make_iteration_combined(self, x, y, logit_threshold, verbose, omega=0.1):
         data_size, num_features = x.shape[0], x.shape[1]
         num_combined_features = len(self.combined_features)
         # перенастраиваем веса и пороги индивидуальных признаков

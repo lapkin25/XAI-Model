@@ -82,7 +82,7 @@ class CombinedFeaturesModel(AdjustedModel):
 
 
 class CombinedFeaturesModel2(CombinedFeaturesModel):
-    def fit(self, x, y, verbose=True):
+    def fit(self, x, y, verbose=True, logistic_weights=True):
         data_size, num_features = x.shape[0], x.shape[1]
         initial_model = InitialModel()
         initial_model.fit(x, y)
@@ -143,6 +143,8 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             for it1 in range(num_additional_iter):
                 print("Additional iteration", it1 + 1)
                 self.make_iteration_combined(x, y, logit_threshold, verbose)
+                if logistic_weights:
+                    self.fit_logistic_combined(x, y)
 
     def make_iteration_combined(self, x, y, logit_threshold, verbose):
         data_size, num_features = x.shape[0], x.shape[1]

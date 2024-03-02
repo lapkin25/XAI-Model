@@ -194,8 +194,12 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             # находим пороги, обеспечивающие максимум TPV/FPV
             xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
             # обновляем порог и вес для s-го признака
-            self.combined_features[s] = (k, j, xj_cutoff)
-            self.combined_weights[s] = logit_threshold - min_logit
+            if xj_cutoff is None:
+                self.combined_features[s] = (k, j, 0.0)
+                self.combined_weights[s] = 0.0
+            else:
+                self.combined_features[s] = (k, j, xj_cutoff)
+                self.combined_weights[s] = logit_threshold - min_logit
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
         # настраиваем интерсепт в конце каждой итерации

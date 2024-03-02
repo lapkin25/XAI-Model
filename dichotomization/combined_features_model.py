@@ -148,13 +148,15 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
         # оптимизируем веса
         self.fit_logistic_combined(x, y)
 
-    def make_iteration_combined(self, x, y, logit_threshold, verbose):
+    def make_iteration_combined(self, x, y, logit_threshold, verbose, omega=0.5):
         data_size, num_features = x.shape[0], x.shape[1]
         num_combined_features = len(self.combined_features)
         # перенастраиваем веса и пороги индивидуальных признаков
         for k in np.random.permutation(num_features):
             # производим дихотомизацию
             bin_x = self.dichotomize_combined(x)
+            old_xk_cutoff = self.cutoffs[k]
+            old_wk = self.weights[k]
             # исключаем k-й признак
             weights1 = np.delete(self.weights, k)
             bin_x1 = np.delete(bin_x, k, axis=1)
@@ -172,8 +174,8 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_x(xk, logit1, labels, 10, eps=6.0)
             # xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_y(xk, logit1, labels, 10, eps=8.0)
             # обновляем порог и вес для k-го признака
-            self.cutoffs[k] = xk_cutoff
-            self.weights[k] = logit_threshold - min_logit
+            self.cutoffs[k] = omega * xk_cutoff + (1 - omega) * old_xk_cutoff
+            self.weights[k] = omega * (logit_threshold - min_logit) + (1 - omega) * old_wk
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
         # перенастраиваем веса и пороги комбинированных признаков

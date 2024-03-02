@@ -47,11 +47,13 @@ class AdjustedModel:
             print("Iteration", it + 1)
             self.make_iteration(x, y, logit_threshold, verbose)
 
-    def make_iteration(self, x, y, logit_threshold, verbose, logistic_weights=False):
+    def make_iteration(self, x, y, logit_threshold, verbose, logistic_weights=False, omega=0.5):
         data_size, num_features = x.shape[0], x.shape[1]
         for k in np.random.permutation(num_features):  # range(num_features):
             # производим дихотомизацию
             bin_x = self.dichotomize(x)
+            old_xk_cutoff = self.cutoffs[k]
+            old_wk = self.weights[k]
             # исключаем k-й признак
             weights1 = np.delete(self.weights, k)
             bin_x1 = np.delete(bin_x, k, axis=1)
@@ -68,8 +70,8 @@ class AdjustedModel:
             xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
             # xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_y(xk, logit1, labels, 10, eps=8.0)
             # обновляем порог и вес для k-го признака
-            self.cutoffs[k] = xk_cutoff
-            self.weights[k] = logit_threshold - min_logit
+            self.cutoffs[k] = omega * xk_cutoff + (1 - omega) * old_xk_cutoff
+            self.weights[k] = omega * (logit_threshold - min_logit) + (1 - omega) * old_wk
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
         # настраиваем интерсепт в конце каждой итерации

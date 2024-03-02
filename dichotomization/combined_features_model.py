@@ -4,7 +4,7 @@ from initial_model import InitialModel
 from adjusted_model import AdjustedModel
 from adjust_intercept import AdjustIntercept
 from calc_functions import stable_sigmoid
-from tpv_fpv import max_ones_zeros
+from tpv_fpv import max_ones_zeros, eps_max_ones_zeros_min_x
 
 
 class CombinedFeaturesModel(AdjustedModel):
@@ -82,7 +82,7 @@ class CombinedFeaturesModel(AdjustedModel):
 
 
 class CombinedFeaturesModel2(CombinedFeaturesModel):
-    def fit(self, x, y, verbose=True, logistic_weights=True):
+    def fit(self, x, y, verbose=True, logistic_weights=False):
         data_size, num_features = x.shape[0], x.shape[1]
         initial_model = InitialModel()
         initial_model.fit(x, y)
@@ -145,6 +145,8 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
                 self.make_iteration_combined(x, y, logit_threshold, verbose)
                 if logistic_weights:
                     self.fit_logistic_combined(x, y)
+        # оптимизируем веса
+        self.fit_logistic_combined(x, y)
 
     def make_iteration_combined(self, x, y, logit_threshold, verbose):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -166,7 +168,8 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             xk = x[selection, k]
             labels = y[selection]
             # находим пороги, обеспечивающие максимум TPV/FPV
-            xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
+            #xk_cutoff, min_logit, max_rel = max_ones_zeros(xk, logit1, labels, 10)
+            xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_x(xk, logit1, labels, 10, eps=6.0)
             # xk_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_y(xk, logit1, labels, 10, eps=8.0)
             # обновляем порог и вес для k-го признака
             self.cutoffs[k] = xk_cutoff
@@ -194,7 +197,8 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             labels = y[selection & selection_k]
             xj = x[selection & selection_k, j]
             # находим пороги, обеспечивающие максимум TPV/FPV
-            xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
+            #xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
+            xj_cutoff, min_logit, max_rel = eps_max_ones_zeros_min_x(xj, logit1, labels, 5, eps=6.0)
             # обновляем порог и вес для s-го признака
             if xj_cutoff is None:
                 self.combined_features[s] = (k, j, 0.0)

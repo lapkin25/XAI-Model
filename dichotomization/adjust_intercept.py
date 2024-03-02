@@ -25,7 +25,7 @@ class AdjustIntercept:
             f = self.objective(y, y_pred)
             return f, df
 
-        optim_res = minimize(f_and_df, self.intercept, jac=True)
+        optim_res = minimize(f_and_df, self.intercept, jac=True, tol=1e-2)
         self.intercept = optim_res.x
         return self.intercept[0]
 

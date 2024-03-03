@@ -133,7 +133,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
                         xj = x[selection & selection_k, j]
                         # находим пороги, обеспечивающие максимум TPV/FPV
                         xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
-                        if (best_max_rel is None) or ((min_logit is not None) and max_rel > best_max_rel):
+                        if (best_max_rel is None and (min_logit is not None)) or ((min_logit is not None) and max_rel > best_max_rel):
                             best_max_rel = max_rel
                             best_wj = logit_threshold - min_logit
                             best_xj_cutoff = xj_cutoff

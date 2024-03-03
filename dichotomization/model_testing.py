@@ -4,7 +4,7 @@ from sklearn.model_selection import StratifiedKFold, train_test_split
 
 def test_model(model, data):
     print("Кросс-валидация")
-    skf = StratifiedKFold(n_splits=8, shuffle=True, random_state=123)
+    skf = StratifiedKFold(n_splits=7, shuffle=True, random_state=123)
     for i, (train_index, test_index) in enumerate(skf.split(data.x, data.y)):
         print(f"Fold {i}:")
         x_train = data.x[train_index, :]

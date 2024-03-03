@@ -51,7 +51,7 @@ test_model(initial_model, data)
 
 #adjusted_model = CombinedFeaturesModel()  #AdjustedModel()
 adjusted_model = CombinedFeaturesModel2()
-adjusted_model.fit(data.x, data.y, omega=1.0)
+adjusted_model.fit(data.x, data.y, omega=1.0, p_threshold=threshold)
 print("=" * 10 + "\nНастроенная модель")
 print("Пороги:")
 for k, feature_name in enumerate(predictors):

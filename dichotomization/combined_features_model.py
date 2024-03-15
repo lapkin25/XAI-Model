@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn import metrics as sklearn_metrics
 from sklearn.linear_model import LogisticRegression
 from initial_model import InitialModel
 from adjusted_model import AdjustedModel
@@ -14,7 +15,7 @@ class CombinedFeaturesModel(AdjustedModel):
         self.combined_weights = None
 
     def fit(self, x, y, verbose=True, p_threshold=0.05):
-        super().fit(x, y, verbose)
+        super().fit(x, y, verbose, p_threshold)
         data_size, num_features = x.shape[0], x.shape[1]
         #p_threshold = 0.05  # TODO: передать как входной параметр
         # logit_threshold = stable_sigmoid(p_threshold)  - грубая ошибка!
@@ -224,7 +225,7 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             #   для следующего признака он настраивается заново
         # настраиваем интерсепт в конце каждой итерации
         bin_x = self.dichotomize_combined(x)
-        self.intercept = AdjustIntercept(np.r_[self.weights, self.combined_weights], self.intercept).fit(bin_x, y)
+        self.intercept = AdjustIntercept(np.r_[self.weights, self.combined_weights], self.intercept).fit(bin_x, y, use_sensitivity=True, p_threshold=p_threshold)
         if verbose:
             print("Пороги:", self.cutoffs)
             print("Веса:", self.weights)
@@ -232,3 +233,13 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             print("Веса комбинированных признаков:", self.combined_weights)
             print("Интерсепт:", self.intercept)
         # TODO: перенастроить также и добавленные комбинированные признаки
+            # выводим качество модели
+            z = np.dot(bin_x, np.r_[self.weights, self.combined_weights]) + self.intercept
+            probs = np.array([stable_sigmoid(value) for value in z])
+            y_pred = np.where(probs > p_threshold, 1, 0)
+            auc = sklearn_metrics.roc_auc_score(y, probs)
+            tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y, y_pred).ravel()
+            specificity = tn / (tn + fp)
+            sensitivity = tp / (tp + fn)
+            print("AUC:", auc, "Sens:", sensitivity, "Spec:", specificity)
+            print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)

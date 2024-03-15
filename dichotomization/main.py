@@ -80,7 +80,7 @@ y_pred = np.where(p >= threshold, 1, 0)
 auc = sklearn_metrics.roc_auc_score(data.y, p)
 print("AUC:", auc)
 
-test_model(adjusted_model, data)
+test_model(adjusted_model, data, p_threshold=threshold)
 
 # TODO: вызвать fit_logistic_combined
 """

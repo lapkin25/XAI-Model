@@ -31,3 +31,10 @@ def test_model(model, data, p_threshold=0.05):
     p = model.predict_proba(x_test, y_test)
     auc = sklearn_metrics.roc_auc_score(y_test, p)
     print("AUC:", auc)
+    # выводим качество модели
+    y_pred = np.where(p > p_threshold, 1, 0)
+    tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y_test, y_pred).ravel()
+    specificity = tn / (tn + fp)
+    sensitivity = tp / (tp + fn)
+    print("Sens:", sensitivity, "Spec:", specificity)
+    print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)

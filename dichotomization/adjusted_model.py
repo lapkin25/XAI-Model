@@ -81,6 +81,8 @@ class AdjustedModel:
                 self.weights[k] = omega * (logit_threshold - min_logit) + (1 - omega) * old_wk
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
+            if verbose:
+                print("Предиктор", k + 1, ": TP/FP = ", max_rel)
         # настраиваем интерсепт в конце каждой итерации
         bin_x = self.dichotomize(x)
         self.intercept = AdjustIntercept(self.weights, self.intercept).fit(bin_x, y)
@@ -88,6 +90,15 @@ class AdjustedModel:
             print("Пороги:", self.cutoffs)
             print("Веса:", self.weights)
             print("Интерсепт:", self.intercept)
+            # выводим качество модели
+            z = np.dot(bin_x, self.weights) + self.intercept
+            probs = np.array([stable_sigmoid(value) for value in z])
+            y_pred = np.where(probs < p_threshold, 0, 1)
+            auc = sklearn_metrics.roc_auc_score(y, probs)
+            tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y, y_pred).ravel()
+            specificity = tn / (tn + fp)
+            sensitivity = tp / (tp + fn)
+            print("AUC:", auc, "Spec:", specificity, "Sens:", sensitivity)
 
         # настраиваем веса и интерсепт, обучая логистическую регрессию
         if logistic_weights:

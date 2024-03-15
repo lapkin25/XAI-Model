@@ -27,6 +27,8 @@ predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", 
 invert_predictors = find_predictors_to_invert(data, predictors)
 print("Признаки с отрицательными весами:", invert_predictors)
 data.prepare(predictors, "Dead", invert_predictors)
+#print(data.x.shape)
+#print(np.sum(data.y))
 
 threshold = 0.05
 

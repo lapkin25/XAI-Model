@@ -38,6 +38,14 @@ class CombinedFeaturesModel(AdjustedModel):
             labels = y[selection & selection_k]
             for j in range(num_features):
                 if j != k:
+                    # проверяем, добавлялось ли такое сочетание признаков
+                    ok = True
+                    for k1, j1, _, _ in combined_features_data:
+                        if k1 == k and j1 == j:
+                            ok = False
+                    if not ok:
+                        continue
+
                     xj = x[selection & selection_k, j]
                     # находим пороги, обеспечивающие максимум TPV/FPV
                     xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)
@@ -131,6 +139,14 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
                 labels = y[selection & selection_k]
                 for j in range(num_features):
                     if j != k:
+                        # проверяем, добавлялось ли такое сочетание признаков
+                        ok = True
+                        for k1, j1, _, in self.combined_features:
+                            if k1 == k and j1 == j:
+                                ok = False
+                        if not ok:
+                            continue
+
                         xj = x[selection & selection_k, j]
                         # находим пороги, обеспечивающие максимум TPV/FPV
                         xj_cutoff, min_logit, max_rel = max_ones_zeros(xj, logit1, labels, 5)

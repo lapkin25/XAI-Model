@@ -50,7 +50,7 @@ y_pred = np.where(p >= threshold, 1, 0)
 auc = sklearn_metrics.roc_auc_score(data.y, p)
 print("AUC:", auc)
 
-test_model(initial_model, data)
+#test_model(initial_model, data)
 
 #adjusted_model = CombinedFeaturesModel()  #AdjustedModel()
 adjusted_model = CombinedFeaturesModel2()
@@ -82,7 +82,7 @@ y_pred = np.where(p >= threshold, 1, 0)
 auc = sklearn_metrics.roc_auc_score(data.y, p)
 print("AUC:", auc)
 
-test_model(adjusted_model, data, p_threshold=threshold)
+test_model(adjusted_model, data, p_threshold=threshold, random_order=random_order)
 
 # TODO: вызвать fit_logistic_combined
 """

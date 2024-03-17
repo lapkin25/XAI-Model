@@ -86,7 +86,7 @@ class CombinedFeaturesModel(AdjustedModel):
 
 
 class CombinedFeaturesModel2(CombinedFeaturesModel):
-    def fit(self, x, y, verbose=True, logistic_weights=False, p_threshold=0.05, omega=1.0):
+    def fit(self, x, y, verbose=True, logistic_weights=False, p_threshold=0.05, omega=1.0, random_order=True):
         data_size, num_features = x.shape[0], x.shape[1]
         initial_model = InitialModel()
         initial_model.fit(x, y)
@@ -99,11 +99,11 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
         #logit_threshold = stable_sigmoid(p_threshold)
         for it in range(num_iter):
             print("Iteration", it + 1)
-            self.make_iteration(x, y, verbose, p_threshold=p_threshold, omega=omega)
+            self.make_iteration(x, y, verbose, p_threshold=p_threshold, omega=omega, random_order=random_order)
 
         self.combined_features = []
         self.combined_weights = []
-        num_combined_iter = 10
+        num_combined_iter = 15
         num_additional_iter = 5
         for it in range(num_combined_iter):
             # добавляем дополнительный комбинированный признак
@@ -149,18 +149,22 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             # TODO: проделать вспомогательные итерации по настройке весов
             for it1 in range(num_additional_iter):
                 print("Additional iteration", it1 + 1)
-                self.make_iteration_combined(x, y, verbose, p_threshold=p_threshold, omega=omega)
+                self.make_iteration_combined(x, y, verbose, p_threshold=p_threshold, omega=omega, random_order=random_order)
                 if logistic_weights:
                     self.fit_logistic_combined(x, y)
         # оптимизируем веса
         if logistic_weights:
             self.fit_logistic_combined(x, y)
 
-    def make_iteration_combined(self, x, y, verbose, omega=0.1, p_threshold=0.05):
+    def make_iteration_combined(self, x, y, verbose, omega=0.1, p_threshold=0.05, random_order=True):
         data_size, num_features = x.shape[0], x.shape[1]
         num_combined_features = len(self.combined_features)
         # перенастраиваем веса и пороги индивидуальных признаков
-        for k in np.random.permutation(num_features):
+        if random_order:
+            range_features = np.random.permutation(num_features)
+        else:
+            range_features = range(num_features)
+        for k in range_features:
             # производим дихотомизацию
             bin_x = self.dichotomize_combined(x)
             old_xk_cutoff = self.cutoffs[k]
@@ -190,7 +194,11 @@ class CombinedFeaturesModel2(CombinedFeaturesModel):
             # интерсепт пока не трогаем, потому что
             #   для следующего признака он настраивается заново
         # перенастраиваем веса и пороги комбинированных признаков
-        for s in np.random.permutation(num_combined_features):
+        if random_order:
+            range_combined_features = np.random.permutation(num_combined_features)
+        else:
+            range_combined_features = range(num_combined_features)
+        for s in range_combined_features:
             # производим дихотомизацию
             bin_x = self.dichotomize_combined(x)
             # исключаем s-й комбинированный признак

@@ -46,10 +46,14 @@ class AdjustedModel:
             print("Iteration", it + 1)
             self.make_iteration(x, y, verbose, p_threshold=p_threshold)
 
-    def make_iteration(self, x, y, verbose, logistic_weights=False, omega=1.0, p_threshold=0.05):
+    def make_iteration(self, x, y, verbose, logistic_weights=False, omega=1.0, p_threshold=0.05, random_order=True):
         data_size, num_features = x.shape[0], x.shape[1]
         # p_threshold = 0.05  # TODO: передать как входной параметр
-        for k in np.random.permutation(num_features):  # range(num_features):
+        if random_order:
+            range_features = np.random.permutation(num_features)
+        else:
+            range_features = range(num_features)
+        for k in range_features:
             # производим дихотомизацию
             bin_x = self.dichotomize(x)
             old_xk_cutoff = self.cutoffs[k]

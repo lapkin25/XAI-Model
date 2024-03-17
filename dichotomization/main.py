@@ -23,7 +23,8 @@ def find_predictors_to_invert(data, predictors):
 
 
 data = Data("DataSet.xlsx")
-predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+#predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+predictors = ["Cr", "HR", "EF LV", "Glu", "NEUT", "EOS", "PCT", "SBP", "Age", "Killip class"]
 invert_predictors = find_predictors_to_invert(data, predictors)
 print("Признаки с отрицательными весами:", invert_predictors)
 data.prepare(predictors, "Dead", invert_predictors)
@@ -53,7 +54,8 @@ test_model(initial_model, data)
 
 #adjusted_model = CombinedFeaturesModel()  #AdjustedModel()
 adjusted_model = CombinedFeaturesModel2()
-adjusted_model.fit(data.x, data.y, omega=1.0, p_threshold=threshold)
+random_order = False
+adjusted_model.fit(data.x, data.y, omega=1.0, p_threshold=threshold, random_order=random_order)
 print("=" * 10 + "\nНастроенная модель")
 print("Пороги:")
 for k, feature_name in enumerate(predictors):

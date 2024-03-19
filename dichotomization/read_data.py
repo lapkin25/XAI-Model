@@ -48,19 +48,19 @@ class Data:
             val = -val
         return val
 
-    def binarize(self, selected_predictors, output_feature, invert_predictors, thresholds):
+    def binarize(self, selected_predictors, output_feature, thresholds):
         data_x_y = self.dataset[selected_predictors + [output_feature]].dropna()
         data_x = data_x_y[selected_predictors].to_numpy()
         data_y = data_x_y[output_feature].to_numpy()
         bin_x = np.empty_like(data_x)
         for i, pred in enumerate(selected_predictors):
-            if pred in invert_predictors:
+            if pred in self.inverted_predictors:
                 bin_x[:, i] = np.where(data_x[:, i] <= thresholds[i], 1, 0)
             else:
                 bin_x[:, i] = np.where(data_x[:, i] >= thresholds[i], 1, 0)
         return bin_x
 
-    def binarize_combined(self, selected_predictors, output_feature, invert_predictors, thresholds,
+    def binarize_combined(self, selected_predictors, output_feature, thresholds,
                           combined_predictors, combined_thresholds):
         data_x_y = self.dataset[selected_predictors + [output_feature]].dropna()
         data_x = data_x_y[selected_predictors].to_numpy()
@@ -71,11 +71,11 @@ class Data:
             j = selected_predictors.index(pred1)
             k = selected_predictors.index(pred2)
             for s in range(data_size):
-                if pred1 in invert_predictors:
+                if pred1 in self.inverted_predictors:
                     bin_j = (data_x[s, j] <= thresholds[j])
                 else:
                     bin_j = (data_x[s, j] >= thresholds[j])
-                if pred2 in invert_predictors:
+                if pred2 in self.inverted_predictors:
                     bin_k = (data_x[s, k] <= combined_thresholds[i])
                 else:
                     bin_k = (data_x[s, k] >= combined_thresholds[i])

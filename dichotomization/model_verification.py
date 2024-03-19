@@ -55,8 +55,8 @@ combined_predictors = [("Age", "EOS"), ("HR", "Age"), ("HR", "Glu"), ("Killip cl
                        ("Killip class", "EF LV"), ("NEUT", "EF LV"), ("SBP", "HR"), ("EOS", "Age")]
 combined_thresholds = [0.0, 76.0, 8.98, 75.0, 40.0, 68.0, 76.6, 0.0, 90.0, 90.0, 105.61, 46.0, 54.62, 90.0, 64.0]
 
-bin_x = data.binarize(predictors, "Dead", invert_predictors, thresholds)
-bin_x_combined = data.binarize_combined(predictors, "Dead", invert_predictors, thresholds,
+bin_x = data.binarize(predictors, "Dead", thresholds)
+bin_x_combined = data.binarize_combined(predictors, "Dead", thresholds,
                                         combined_predictors, combined_thresholds)
 
 data.prepare(predictors, "Dead", invert_predictors)

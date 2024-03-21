@@ -56,7 +56,7 @@ class NewIndividualFeaturesModel:
             logit1 = logit[selection]
             xk = x[selection, k]
             labels = y[selection]
-            # находим пороги, обеспечивающие максимум TPV/FPV
+            # находим порог и вес, обеспечивающие максимум TPV/FPV
             cur_cutoff = self.cutoffs[k] if self.weights[k] > 0 else None
             xk_cutoff, min_logit, max_rel = new_max_ones_zeros(
                 xk, logit1, labels, 7, cur_cutoff,
@@ -103,7 +103,7 @@ class NewCombinedFeaturesModel:
     def __init__(self, verbose_training=False, p0=0.05, K=10, delta_a=None, delta_w=None,
                  individual_training_iterations=20):
         self.cutoffs = None
-        self.weights = None
+        self.individual_weights = None
         self.intercept = None
         self.combined_features = None  # список троек (k, j, xj_cutoff)
         self.combined_weights = None
@@ -116,11 +116,93 @@ class NewCombinedFeaturesModel:
         self.individual_training_iterations = individual_training_iterations
 
     def fit(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+
         ind_model = NewIndividualFeaturesModel(
             verbose_training=self.verbose_training, p0=self.p0,
             delta_a=self.delta_a, delta_w=self.delta_w,
             training_iterations=self.individual_training_iterations)
         ind_model.fit(x, y)
+        self.cutoffs = ind_model.cutoffs
+        self.individual_weights = ind_model.weights
+        self.intercept = ind_model.intercept
+
+        self.combined_features = []
+        self.combined_weights = []
+        for it in range(self.K):
+            # добавляем дополнительный комбинированный признак
+            # для этого выбираем его из условия максимума TPV/FPV
+            bin_x = self.dichotomize_combined(x)
+            # для каждой точки найдем значения решающей функции
+            logit = np.array([self.intercept
+                + np.dot(self.combined_weights, bin_x[i]) for i in range(data_size)])
+            # выделяем пороговую область П
+            logit_threshold = inv_sigmoid(self.p0)
+            p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
+            selection = p <= self.p0
+            # находим пару признаков, максимизирующую TP/FP
+            best_max_rel = None
+            best_wj = None
+            best_xj_cutoff = None
+            best_k = None
+            best_j = None
+            for k in range(num_features):
+                # пробуем добавить к k-му признаку какой-нибудь j-й,
+                # чтобы спрогнозировать единицы в области П∩{x_k > a_k}∩Ф
+                # с помощью фильтрующего свойства Ф = {x_j > b_j}
+                selection_k = x[:, k] >= self.cutoffs[k]
+                logit1 = logit[selection & selection_k]
+                labels = y[selection & selection_k]
+                for j in range(num_features):
+                    if j != k:
+                        # проверяем, добавлялось ли такое сочетание признаков
+                        ok = True
+                        for k1, j1, _ in self.combined_features:
+                            if k1 == k and j1 == j:
+                                ok = False
+                        if not ok:
+                            continue
+
+                        xj = x[selection & selection_k, j]
+                        # находим порог и вес, обеспечивающие максимум TPV/FPV
+                        xj_cutoff, min_logit, max_rel = new_max_ones_zeros(
+                            xj, logit1, labels, 5, None, None, None, None)
+                        if min_logit is None:
+                            continue
+                        if best_max_rel is None or max_rel > best_max_rel:
+                            best_max_rel = max_rel
+                            best_wj = logit_threshold - min_logit
+                            best_xj_cutoff = xj_cutoff
+                            best_k = k
+                            best_j = j
+            if self.verbose_training:
+                print("Новая комбинация:", "k =", best_k, ", j =", best_j,
+                      ", порог для xj =", best_xj_cutoff, ", вес для xj =", best_wj,
+                      ", TP/FP =", best_max_rel)
+            self.combined_features.append((best_k, best_j, best_xj_cutoff))
+            self.combined_weights = np.append(self.combined_weights, [best_wj])
+            # настраиваем интерсепт в конце каждой итерации
+            bin_x = self.dichotomize_combined(x)
+            self.intercept = AdjustIntercept(self.combined_weights,
+                self.intercept).fit(bin_x, y, use_sensitivity=False,
+                p_threshold=self.p0)
+            # TODO: проделать вспомогательные итерации по настройке весов
+
+
+
+    def dichotomize_combined(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        bin_x = np.empty_like(x, dtype=int)
+        for k in range(num_features):
+            bin_x[:, k] = x[:, k] >= self.cutoffs[k]
+        bin_x_combined = np.empty((data_size, len(self.combined_features)))
+        for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
+            filtering = np.array(x[:, j] >= xj_cutoff).astype(int)
+            new_feature = bin_x[:, k] & filtering
+            bin_x_combined[:, i] = new_feature
+        return bin_x_combined
+
+
 
     # возвращает для каждой точки две вероятности: "0" и "1"
     # def predict_proba(self, x, y):

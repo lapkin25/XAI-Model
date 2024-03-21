@@ -39,7 +39,7 @@ def print_model(model, data):
         val = data.get_coord(feature_name, xj_cutoff)
         s = '≤' if feature_name in data.inverted_predictors else '≥'
         print(" & ", feature_name, " ", s, val, sep='')
-    print("Веса:", model.weights)
+    print("Веса:", model.individual_weights)
     print("Комбинированные веса:", model.combined_weights)
     print("Интерсепт:", model.intercept)
 

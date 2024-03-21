@@ -2,7 +2,7 @@ import sys
 sys.path.insert(1, '../dichotomization')
 
 from dichotomization.read_data import Data
-from new_combined_features_model import NewCombinedFeaturesModel
+from new_combined_features_model import NewCombinedFeaturesModel, NewIndividualFeaturesModel
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -63,7 +63,7 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
 threshold = 0.04
-num_combined_features = 10
+num_combined_features = 25
 
 x_train, x_test, y_train, y_test = \
     train_test_split(data.x, data.y, test_size=0.2, random_state=123, stratify=data.y)
@@ -75,3 +75,41 @@ model.fit(x_train, y_train)
 
 print_model(model, data)
 test_model(model, x_test, y_test, threshold)
+
+# проверяем модель
+print("Проверка модели 2")
+ind_model = NewIndividualFeaturesModel(verbose_training=True, p0=threshold,
+    delta_a=0.2, delta_w=0.3, training_iterations=25)
+ind_model.fit(x_train, y_train)
+test_model(ind_model, x_test, y_test, threshold)
+bin_x_train = ind_model.dichotomize(x_train)
+bin_x_test = ind_model.dichotomize(x_test)
+model2 = LogisticRegression()
+model2.fit(bin_x_train, y_train)
+print("Веса =", model2.coef_)
+p = model2.predict_proba(bin_x_test)[:, 1]
+auc = sklearn_metrics.roc_auc_score(y_test, p)
+print("AUC:", auc)
+y_pred = np.where(p > threshold, 1, 0)
+tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y_test, y_pred).ravel()
+specificity = tn / (tn + fp)
+sensitivity = tp / (tp + fn)
+print("Sens:", sensitivity, "Spec:", specificity)
+print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)
+
+# проверяем модель
+print("Проверка модели 3")
+bin_x_train_combined = model.dichotomize_combined(x_train)
+bin_x_test_combined = model.dichotomize_combined(x_test)
+model3 = LogisticRegression()
+model3.fit(bin_x_train_combined, y_train)
+print("Веса =", model3.coef_)
+p = model3.predict_proba(bin_x_test_combined)[:, 1]
+auc = sklearn_metrics.roc_auc_score(y_test, p)
+print("AUC:", auc)
+y_pred = np.where(p > threshold, 1, 0)
+tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y_test, y_pred).ravel()
+specificity = tn / (tn + fp)
+sensitivity = tp / (tp + fn)
+print("Sens:", sensitivity, "Spec:", specificity)
+print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)

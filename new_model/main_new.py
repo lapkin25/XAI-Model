@@ -63,9 +63,9 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
 threshold = 0.04
-num_combined_features = 20
+num_combined_features = 30
 
-num_splits = 10
+num_splits = 30
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
     x_train, x_test, y_train, y_test = \

@@ -101,7 +101,7 @@ class NewCombinedFeaturesModel:
     # delta_a - параметр регуляризации для порога
     # delta_w - параметр регуляризации для веса
     def __init__(self, verbose_training=False, p0=0.05, K=10, delta_a=None, delta_w=None,
-                 individual_training_iterations=20):
+                 individual_training_iterations=20, combined_training_iterations=20):
         self.cutoffs = None
         self.individual_weights = None
         self.intercept = None
@@ -114,6 +114,7 @@ class NewCombinedFeaturesModel:
         self.delta_a = delta_a
         self.delta_w = delta_w
         self.individual_training_iterations = individual_training_iterations
+        self.combined_training_iterations = combined_training_iterations
 
     def fit(self, x, y):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -176,7 +177,7 @@ class NewCombinedFeaturesModel:
                             best_k = k
                             best_j = j
             if self.verbose_training:
-                print("Новая комбинация:", "k =", best_k, ", j =", best_j,
+                print("Новая комбинация №", it + 1, ": k =", best_k, ", j =", best_j,
                       ", порог для xj =", best_xj_cutoff, ", вес для xj =", best_wj,
                       ", TP/FP =", best_max_rel)
             self.combined_features.append((best_k, best_j, best_xj_cutoff))
@@ -186,9 +187,63 @@ class NewCombinedFeaturesModel:
             self.intercept = AdjustIntercept(self.combined_weights,
                 self.intercept).fit(bin_x, y, use_sensitivity=False,
                 p_threshold=self.p0)
-            # TODO: проделать вспомогательные итерации по настройке весов
 
+            # вспомогательные итерации по настройке комбинированных весов и порогов
+            for it1 in range(self.combined_training_iterations):
+                if self.verbose_training:
+                    print("Combined iteration", it1 + 1)
+                self.make_iteration_combined(x, y)
 
+    def make_iteration_combined(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        num_combined_features = len(self.combined_features)
+        for s in range(num_combined_features):
+            # производим дихотомизацию
+            bin_x = self.dichotomize_combined(x)
+            # для каждой точки найдем значения решающей функции
+            #   (без s-го комбинированного признака)
+            weights1 = np.delete(self.combined_weights, s)
+            bin_x1 = np.delete(bin_x, s, axis=1)
+            intercept1 = AdjustIntercept(weights1, self.intercept).fit(bin_x1, y,
+                use_sensitivity=False, p_threshold=self.p0)
+            # значения решающей функции для каждой точки
+            logit = np.array([intercept1 + np.dot(weights1, bin_x1[i])
+                              for i in range(data_size)])
+            # выделяем пороговую область
+            p = np.array([stable_sigmoid(logit[i]) for i in range(data_size)])
+            logit_threshold = inv_sigmoid(self.p0)
+            selection = p <= self.p0
+            # параметры s-го комбинированного признака
+            k = self.combined_features[s][0]
+            j = self.combined_features[s][1]
+            selection_k = x[:, k] >= self.cutoffs[k]
+            logit1 = logit[selection & selection_k]
+            xj = x[selection & selection_k, j]
+            labels = y[selection & selection_k]
+            # находим порог и вес, обеспечивающие максимум TPV/FPV
+            cur_cutoff = self.combined_features[s][2] if self.combined_weights[s] > 0 else None
+            xj_cutoff, min_logit, max_rel = new_max_ones_zeros(
+                xj, logit1, labels, 5, cur_cutoff,
+                logit_threshold - self.combined_weights[s], self.delta_a, self.delta_w)
+            if min_logit is not None:
+                new_weight = logit_threshold - min_logit
+            else:
+                new_weight = None
+            if self.verbose_training:
+                print("Комбинированный предиктор", s + 1, ": TP/FP = ", max_rel,
+                      "; порог =", xj_cutoff, "вместо", cur_cutoff,
+                      "; вес =", new_weight, "вместо", self.combined_weights[s])
+            # обновляем порог и вес для k-го признака
+            if xj_cutoff is None:
+                self.combined_features[s] = (k, j, 0.0)
+                self.combined_weights[s] = 0.0
+            else:
+                self.combined_features[s] = (k, j, xj_cutoff)
+                self.combined_weights[s] = new_weight
+        # настраиваем интерсепт в конце каждой итерации
+        bin_x = self.dichotomize_combined(x)
+        self.intercept = AdjustIntercept(self.combined_weights, self.intercept).fit(bin_x, y,
+            use_sensitivity=False, p_threshold=self.p0)
 
     def dichotomize_combined(self, x):
         data_size, num_features = x.shape[0], x.shape[1]

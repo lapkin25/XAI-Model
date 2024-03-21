@@ -63,13 +63,14 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
 threshold = 0.04
-num_combined_features = 20
+num_combined_features = 12
 
 x_train, x_test, y_train, y_test = \
     train_test_split(data.x, data.y, test_size=0.2, random_state=123, stratify=data.y)
 
 model = NewCombinedFeaturesModel(verbose_training=True, p0=threshold,
-    K=num_combined_features, delta_a=0.2, delta_w=0.3, individual_training_iterations=25)
+    K=num_combined_features, delta_a=0.2, delta_w=0.3,
+    individual_training_iterations=25, combined_training_iterations=20)
 model.fit(x_train, y_train)
 
 print_model(model, data)

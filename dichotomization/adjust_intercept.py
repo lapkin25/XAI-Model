@@ -15,7 +15,7 @@ class AdjustIntercept:
 
         def f_and_df(w0):
             # производные по параметрам модели
-            df = 0
+            df = 0.0
             y_pred = np.zeros(data_size)  # выходы, предсказанные моделью
             for i in range(data_size):
                 z = w0 + np.dot(self.weights, x[i])  # аргумент сигмоиды
@@ -26,7 +26,7 @@ class AdjustIntercept:
             return f, df
 
         if not use_sensitivity:
-            optim_res = minimize(f_and_df, self.intercept, jac=True, tol=1e-2)
+            optim_res = minimize(f_and_df, self.intercept, jac=True, tol=1e-3)  #, options={'xrtol': 0.1})
             self.intercept = optim_res.x
             return self.intercept[0]
         else:

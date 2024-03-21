@@ -1,3 +1,6 @@
+import sys
+sys.path.insert(1, '../dichotomization')
+
 from dichotomization.read_data import Data
 from new_combined_features_model import NewCombinedFeaturesModel
 import numpy as np
@@ -65,7 +68,8 @@ num_combined_features = 20
 x_train, x_test, y_train, y_test = \
     train_test_split(data.x, data.y, test_size=0.2, random_state=123, stratify=data.y)
 
-model = NewCombinedFeaturesModel(verbose_training=True, p0=threshold, K=num_combined_features)
+model = NewCombinedFeaturesModel(verbose_training=True, p0=threshold,
+    K=num_combined_features, delta_a=0.1, delta_w=0.1, individual_training_iterations=20)
 model.fit(x_train, y_train)
 
 print_model(model, data)

@@ -38,7 +38,7 @@ def new_max_ones_zeros(x_, y_, labels_, min_zero_count, a0, b0, da, db):
                 zeros_right = points_right - ones_right
                 if zeros_right >= min_zero_count and\
                         (a is None and b is None or\
-                        abs(x1 - a0) <= da and abs(y[i] - b0) <= db):
+                        a0 is None or abs(x1 - a0) <= da and abs(y[i] - b0) <= db):
                     rel = ones_right / zeros_right
                     if max_rel is None or rel > max_rel:
                         max_rel = rel

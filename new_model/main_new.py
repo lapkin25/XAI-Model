@@ -68,25 +68,35 @@ num_combined_features = 25
 x_train, x_test, y_train, y_test = \
     train_test_split(data.x, data.y, test_size=0.2, random_state=123, stratify=data.y)
 
-model = NewCombinedFeaturesModel(verbose_training=True, p0=threshold,
+model = NewCombinedFeaturesModel(verbose_training=False, p0=threshold,
     K=num_combined_features, delta_a=0.2, delta_w=0.3,
     individual_training_iterations=25, combined_training_iterations=10)
 model.fit(x_train, y_train)
+model.fit_intercept(x_train, y_train)
 
 print_model(model, data)
 test_model(model, x_test, y_test, threshold)
 
 # проверяем модель
+print("Проверка модели 1")
+model1 = LogisticRegression()
+model1.fit(x_train, y_train)
+test_model(model1, x_test, y_test, threshold)
+
+# проверяем модель
 print("Проверка модели 2")
-ind_model = NewIndividualFeaturesModel(verbose_training=True, p0=threshold,
+ind_model = NewIndividualFeaturesModel(verbose_training=False, p0=threshold,
     delta_a=0.2, delta_w=0.3, training_iterations=25)
 ind_model.fit(x_train, y_train)
+ind_model.fit_intercept(x_train, y_train)
 test_model(ind_model, x_test, y_test, threshold)
 bin_x_train = ind_model.dichotomize(x_train)
 bin_x_test = ind_model.dichotomize(x_test)
 model2 = LogisticRegression()
 model2.fit(bin_x_train, y_train)
 print("Веса =", model2.coef_)
+test_model(model2, bin_x_test, y_test, threshold)
+"""
 p = model2.predict_proba(bin_x_test)[:, 1]
 auc = sklearn_metrics.roc_auc_score(y_test, p)
 print("AUC:", auc)
@@ -96,6 +106,7 @@ specificity = tn / (tn + fp)
 sensitivity = tp / (tp + fn)
 print("Sens:", sensitivity, "Spec:", specificity)
 print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)
+"""
 
 # проверяем модель
 print("Проверка модели 3")
@@ -104,6 +115,8 @@ bin_x_test_combined = model.dichotomize_combined(x_test)
 model3 = LogisticRegression()
 model3.fit(bin_x_train_combined, y_train)
 print("Веса =", model3.coef_)
+test_model(model3, bin_x_test_combined, y_test, threshold)
+"""
 p = model3.predict_proba(bin_x_test_combined)[:, 1]
 auc = sklearn_metrics.roc_auc_score(y_test, p)
 print("AUC:", auc)
@@ -113,3 +126,4 @@ specificity = tn / (tn + fp)
 sensitivity = tp / (tp + fn)
 print("Sens:", sensitivity, "Spec:", specificity)
 print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)
+"""

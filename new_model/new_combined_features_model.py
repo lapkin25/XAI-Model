@@ -84,6 +84,11 @@ class NewIndividualFeaturesModel:
         #    use_sensitivity=True, p_threshold=self.p0)
         #print(self.intercept, intercept2)
 
+    def fit_intercept(self, x, y):
+        bin_x = self.dichotomize(x)
+        self.intercept = AdjustIntercept(self.weights, self.intercept).fit(bin_x, y,
+            use_sensitivity=True, p_threshold=self.p0)
+
     def dichotomize(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
         bin_x = np.empty_like(x, dtype=int)
@@ -254,6 +259,11 @@ class NewCombinedFeaturesModel:
         bin_x = self.dichotomize_combined(x)
         self.intercept = AdjustIntercept(self.combined_weights, self.intercept).fit(bin_x, y,
             use_sensitivity=False, p_threshold=self.p0)
+
+    def fit_intercept(self, x, y):
+        bin_x = self.dichotomize_combined(x)
+        self.intercept = AdjustIntercept(self.combined_weights, self.intercept).fit(bin_x, y,
+            use_sensitivity=True, p_threshold=self.p0)
 
     def dichotomize_combined(self, x):
         data_size, num_features = x.shape[0], x.shape[1]

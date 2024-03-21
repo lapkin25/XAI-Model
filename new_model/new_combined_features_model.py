@@ -135,7 +135,7 @@ class NewCombinedFeaturesModel:
         ind_model.fit(x, y)
         self.cutoffs = ind_model.cutoffs
         self.individual_weights = ind_model.weights
-        self.intercept = ind_model.intercept
+        self.intercept = -5
 
         self.combined_features = []
         self.combined_weights = []

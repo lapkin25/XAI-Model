@@ -63,7 +63,7 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
 threshold = 0.04
-num_combined_features = 15
+num_combined_features = 20
 
 num_splits = 10
 for it in range(1, 1 + num_splits):
@@ -71,7 +71,7 @@ for it in range(1, 1 + num_splits):
     x_train, x_test, y_train, y_test = \
         train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=123)
 
-    model = NewCombinedFeaturesModel(verbose_training=True, p0=threshold,
+    model = NewCombinedFeaturesModel(verbose_training=False, p0=threshold,
         K=num_combined_features, delta_a=0.2, delta_w=0.3,
         individual_training_iterations=25, combined_training_iterations=10)
     model.fit(x_train, y_train)

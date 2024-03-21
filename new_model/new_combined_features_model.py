@@ -273,10 +273,10 @@ class NewCombinedFeaturesModel:
         bin_x = np.empty_like(x, dtype=int)
         for k in range(num_features):
             bin_x[:, k] = x[:, k] >= self.cutoffs[k]
-        bin_x_combined = np.empty((data_size, len(self.combined_features)))
+        bin_x_combined = np.empty((data_size, len(self.combined_features)), dtype=int)
         for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
-            filtering = np.array(x[:, j] >= xj_cutoff).astype(int)
-            new_feature = bin_x[:, k] & filtering
+            filtering = x[:, j] >= xj_cutoff
+            new_feature = bin_x[:, k].astype(bool) & filtering
             bin_x_combined[:, i] = new_feature
         return bin_x_combined
 

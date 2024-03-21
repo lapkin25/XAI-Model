@@ -96,7 +96,7 @@ class NewIndividualFeaturesModel:
         bin_x = self.dichotomize(x)
         z = np.dot(bin_x, self.weights) + self.intercept
         probs = np.array([stable_sigmoid(value) for value in z])
-        return np.c_[probs, 1 - probs]
+        return np.c_[1 - probs, probs]
 
 
 class NewCombinedFeaturesModel:
@@ -272,4 +272,4 @@ class NewCombinedFeaturesModel:
         bin_x = self.dichotomize_combined(x)
         z = np.dot(bin_x, self.combined_weights) + self.intercept
         probs = np.array([stable_sigmoid(value) for value in z])
-        return np.c_[probs, 1 - probs]
+        return np.c_[1 - probs, probs]

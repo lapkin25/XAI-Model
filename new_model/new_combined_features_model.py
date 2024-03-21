@@ -43,7 +43,9 @@ class NewIndividualFeaturesModel:
             bin_x1 = np.delete(bin_x, k, axis=1)
             intercept1 = AdjustIntercept(weights1, self.intercept).fit(bin_x1, y,
                 use_sensitivity=False, p_threshold=self.p0)
-                #use_sensitivity=True, p_threshold=self.p0)
+            #intercept2 = AdjustIntercept(weights1, self.intercept).fit(bin_x1, y,
+            #    use_sensitivity=True, p_threshold=self.p0)
+            #print(intercept1, intercept2)
             # значения решающей функции для каждой точки
             logit = np.array([intercept1 + np.dot(weights1, bin_x1[i])
                               for i in range(data_size)])
@@ -77,8 +79,10 @@ class NewIndividualFeaturesModel:
         # настраиваем интерсепт в конце каждой итерации
         bin_x = self.dichotomize(x)
         self.intercept = AdjustIntercept(self.weights, self.intercept).fit(bin_x, y,
-            #use_sensitivity=True, p_threshold=self.p0)
             use_sensitivity=False, p_threshold=self.p0)
+        #intercept2 = AdjustIntercept(self.weights, self.intercept).fit(bin_x, y,
+        #    use_sensitivity=True, p_threshold=self.p0)
+        #print(self.intercept, intercept2)
 
     def dichotomize(self, x):
         data_size, num_features = x.shape[0], x.shape[1]

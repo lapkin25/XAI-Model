@@ -36,13 +36,12 @@ def new_max_ones_zeros(x_, y_, labels_, min_zero_count, a0, b0, da, db):
                 points_right = (i + 1) - x_coord.index(x1)
                 # zeros_right - число нулей не левее x1
                 zeros_right = points_right - ones_right
-                if zeros_right >= min_zero_count and\
-                        (a is None and b is None or\
-                        a0 is None or abs(x1 - a0) <= da and abs(y[i] - b0) <= db):
+                if zeros_right >= min_zero_count:
                     rel = ones_right / zeros_right
                     if max_rel is None or rel > max_rel:
-                        max_rel = rel
-                        a = x1
-                        b = y[i]
+                        if a0 is None or abs(x1 - a0) <= da and abs(y[i] - b0) <= db:
+                            max_rel = rel
+                            a = x1
+                            b = y[i]
 
     return a, b, max_rel

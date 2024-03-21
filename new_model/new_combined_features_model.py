@@ -189,6 +189,9 @@ class NewCombinedFeaturesModel:
                 print("Новая комбинация №", it + 1, ": k =", best_k, ", j =", best_j,
                       ", порог для xj =", best_xj_cutoff, ", вес для xj =", best_wj,
                       ", TP/FP =", best_max_rel)
+            if best_xj_cutoff is None:
+                print(len(self.combined_features), "combined features")
+                break
             self.combined_features.append((best_k, best_j, best_xj_cutoff))
             self.combined_weights = np.append(self.combined_weights, [best_wj])
             # настраиваем интерсепт в конце каждой итерации

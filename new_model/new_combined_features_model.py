@@ -92,7 +92,11 @@ class NewIndividualFeaturesModel:
         return bin_x
 
     # возвращает для каждой точки две вероятности: "0" и "1"
-    # def predict_proba(self, x, y):
+    def predict_proba(self, x):
+        bin_x = self.dichotomize(x)
+        z = np.dot(bin_x, self.weights) + self.intercept
+        probs = np.array([stable_sigmoid(value) for value in z])
+        return np.c_[probs, 1 - probs]
 
 
 class NewCombinedFeaturesModel:
@@ -194,6 +198,12 @@ class NewCombinedFeaturesModel:
                     print("Combined iteration", it1 + 1)
                 self.make_iteration_combined(x, y)
 
+        # повторяем вспомогательные итерации по настройке комбинированных весов и порогов
+        for it1 in range(2 * self.combined_training_iterations):
+            if self.verbose_training:
+                print("Repeat combined iteration", it1 + 1)
+            self.make_iteration_combined(x, y)
+
     def make_iteration_combined(self, x, y):
         data_size, num_features = x.shape[0], x.shape[1]
         num_combined_features = len(self.combined_features)
@@ -257,7 +267,9 @@ class NewCombinedFeaturesModel:
             bin_x_combined[:, i] = new_feature
         return bin_x_combined
 
-
-
     # возвращает для каждой точки две вероятности: "0" и "1"
-    # def predict_proba(self, x, y):
+    def predict_proba(self, x):
+        bin_x = self.dichotomize_combined(x)
+        z = np.dot(bin_x, self.combined_weights) + self.intercept
+        probs = np.array([stable_sigmoid(value) for value in z])
+        return np.c_[probs, 1 - probs]

@@ -55,6 +55,7 @@ def test_model(model, x_test, y_test, p_threshold):
     sensitivity = tp / (tp + fn)
     print("Sens:", sensitivity, "Spec:", specificity)
     print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)
+    return auc, sensitivity, specificity
 
 
 data = Data("DataSet.xlsx")
@@ -66,6 +67,10 @@ threshold = 0.04
 num_combined_features = 30
 
 num_splits = 30
+import csv
+csvfile = open('splits.csv', 'w', newline='')
+csvwriter = csv.writer(csvfile, delimiter=';')
+csvwriter.writerow(["auc1", "sen1", "spec1", "auc2", "sen2", "spec2", "auc3", "sen3", "spec3"])
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
     x_train, x_test, y_train, y_test = \
@@ -84,7 +89,7 @@ for it in range(1, 1 + num_splits):
     print("Проверка модели 1")
     model1 = LogisticRegression()
     model1.fit(x_train, y_train)
-    test_model(model1, x_test, y_test, threshold)
+    auc1, sen1, spec1 = test_model(model1, x_test, y_test, threshold)
 
     # проверяем модель
     print("Проверка модели 2")
@@ -98,7 +103,7 @@ for it in range(1, 1 + num_splits):
     model2 = LogisticRegression()
     model2.fit(bin_x_train, y_train)
     #print("Веса =", model2.coef_)
-    test_model(model2, bin_x_test, y_test, threshold)
+    auc2, sen2, spec2 = test_model(model2, bin_x_test, y_test, threshold)
 
     # проверяем модель
     print("Проверка модели 3")
@@ -107,4 +112,6 @@ for it in range(1, 1 + num_splits):
     model3 = LogisticRegression()
     model3.fit(bin_x_train_combined, y_train)
     #print("Веса =", model3.coef_)
-    test_model(model3, bin_x_test_combined, y_test, threshold)
+    auc3, sen3, spec3 = test_model(model3, bin_x_test_combined, y_test, threshold)
+
+    csvwriter.writerow(map(str, [auc1, sen1, spec1, auc2, sen2, spec2, auc3, sen3, spec3]))

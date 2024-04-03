@@ -6,11 +6,11 @@ from sortedcontainers import SortedList
 #   (в окрестности порогов a0, b0: |a - a0| <= da, |b - b0| <= db),
 #   максимизирующие отношение числа единиц к числу нулей
 #   в области {x >= a & y >= b}
-#   при условии, что число нулей в этой области не меньше min_zero_count
+#   при условии, что число единиц в этой области не меньше min_ones_count
 # Возвращает числа a, b, max_rel
 #   a, b - пороги для x и y
 #   max_rel - максимум отношения числа единиц к числу нулей
-def new_max_ones_zeros(x_, y_, labels_, min_zero_count, a0, b0, da, db):
+def new_max_ones_zeros(x_, y_, labels_, min_ones_count, a0, b0, da, db):
     # сортируем точки по убыванию y
     ind = np.argsort(y_)
     ind = ind[::-1]
@@ -22,6 +22,9 @@ def new_max_ones_zeros(x_, y_, labels_, min_zero_count, a0, b0, da, db):
     max_rel = None
     a = None
     b = None
+    max_rel1 = None
+    a1 = None
+    b1 = None
 
     x_coord = SortedList()  # x-координаты всех добавленных точек
     ones_x_coord = SortedList()  # x-координаты всех добавленных единиц
@@ -36,12 +39,23 @@ def new_max_ones_zeros(x_, y_, labels_, min_zero_count, a0, b0, da, db):
                 points_right = (i + 1) - x_coord.index(x1)
                 # zeros_right - число нулей не левее x1
                 zeros_right = points_right - ones_right
-                if zeros_right >= min_zero_count:
-                    rel = ones_right / zeros_right
+                if ones_right >= min_ones_count:
+                    if zeros_right == 0:
+                        rel = 1000
+                    else:
+                        rel = ones_right / zeros_right
                     if max_rel is None or rel > max_rel:
                         if a0 is None or abs(x1 - a0) <= da and abs(y[i] - b0) <= db:
                             max_rel = rel
                             a = x1
                             b = y[i]
+                    if max_rel1 is None or rel > max_rel1:
+                        max_rel1 = rel
+                        a1 = x1
+                        b1 = y[i]
 
-    return a, b, max_rel
+    if max_rel is None:
+        # берем максимум без ограничения на принадлежность точки окрестности
+        return a1, b1, max_rel1
+    else:
+        return a, b, max_rel

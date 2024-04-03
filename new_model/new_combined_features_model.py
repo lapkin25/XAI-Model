@@ -59,7 +59,7 @@ class NewIndividualFeaturesModel:
             # находим порог и вес, обеспечивающие максимум TPV/FPV
             cur_cutoff = self.cutoffs[k] if self.weights[k] > 0 else None
             xk_cutoff, min_logit, max_rel = new_max_ones_zeros(
-                xk, logit1, labels, 7, cur_cutoff,
+                xk, logit1, labels, 3, cur_cutoff,
                 logit_threshold - self.weights[k], self.delta_a, self.delta_w)
             if min_logit is not None:
                 xk_weight = logit_threshold - min_logit
@@ -176,7 +176,7 @@ class NewCombinedFeaturesModel:
                         xj = x[selection & selection_k, j]
                         # находим порог и вес, обеспечивающие максимум TPV/FPV
                         xj_cutoff, min_logit, max_rel = new_max_ones_zeros(
-                            xj, logit1, labels, 5, None, None, None, None)
+                            xj, logit1, labels, 3, None, None, None, None)
                         if min_logit is None:
                             continue
                         if best_max_rel is None or max_rel > best_max_rel:
@@ -241,7 +241,7 @@ class NewCombinedFeaturesModel:
             # находим порог и вес, обеспечивающие максимум TPV/FPV
             cur_cutoff = self.combined_features[s][2] if self.combined_weights[s] > 0 else None
             xj_cutoff, min_logit, max_rel = new_max_ones_zeros(
-                xj, logit1, labels, 5, cur_cutoff,
+                xj, logit1, labels, 3, cur_cutoff,
                 logit_threshold - self.combined_weights[s], self.delta_a, self.delta_w)
             if min_logit is not None:
                 new_weight = logit_threshold - min_logit

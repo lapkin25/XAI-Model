@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn import metrics as sklearn_metrics
+from permetrics.classification import ClassificationMetric
 
 def find_predictors_to_invert(data, predictors):
     # обучаем логистическую регрессию с выделенными признаками,
@@ -41,13 +42,17 @@ def print_model(model, data):
         print(" & ", feature_name, " ", s, val, sep='')
         tp = 0
         fp = 0
+        y_pred = np.zeros(data.x.shape[0])
         for i in range(data.x.shape[0]):
             if data.x[i, k] >= model.cutoffs[k] and data.x[i, j] >= xj_cutoff:
+                y_pred[i] = 1
                 if data.y[i] == 1:
                     tp += 1
                 else:
                     fp += 1
         print("   TP = ", tp, " FP = ", fp)
+        cm = ClassificationMetric(data.y, y_pred)
+        print("Gini = ", cm.gini_index(average=None))
     print("Веса:", model.individual_weights)
     print("Комбинированные веса:", model.combined_weights)
     print("Интерсепт:", model.intercept)

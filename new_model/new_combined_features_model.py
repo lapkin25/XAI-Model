@@ -107,9 +107,10 @@ class NewIndividualFeaturesModel:
 class NewCombinedFeaturesModel:
     # p0 - порог отсечения
     # K - число комбинированных признаков
+    # Ks - число начальных комбинированных признаков
     # delta_a - параметр регуляризации для порога
     # delta_w - параметр регуляризации для веса
-    def __init__(self, verbose_training=False, p0=0.05, K=10, delta_a=None, delta_w=None,
+    def __init__(self, verbose_training=False, p0=0.05, K=10, Ks=5, delta_a=None, delta_w=None,
                  individual_training_iterations=20, combined_training_iterations=20):
         self.cutoffs = None
         self.individual_weights = None
@@ -120,6 +121,7 @@ class NewCombinedFeaturesModel:
         self.verbose_training = verbose_training
         self.p0 = p0
         self.K = K
+        self.Ks = Ks
         self.delta_a = delta_a
         self.delta_w = delta_w
         self.individual_training_iterations = individual_training_iterations
@@ -135,11 +137,58 @@ class NewCombinedFeaturesModel:
         ind_model.fit(x, y)
         self.cutoffs = ind_model.cutoffs
         self.individual_weights = ind_model.weights
-        self.intercept = -5
+        self.intercept = -100
 
         self.combined_features = []
         self.combined_weights = []
-        for it in range(self.K):
+        # добавляем начальные комбинированные признаки
+        selected_pairs = []
+        thresholds = []
+        for it in range(self.Ks):
+            # сортировка выбором
+            # перебираем всевозможные парные предикторы
+            best_rel = -1
+            best_k = None
+            best_j = None
+            best_threshold = None
+            for k in range(num_features):
+                for j in range(num_features):
+                    if k != j and (k, j) not in selected_pairs:
+                        selection_k = x[:, k] >= self.cutoffs[k]
+                        xj = x[selection_k, j]
+                        # находим порог, обеспечивающий максимум TPV/FPV
+                        ind = np.argsort(xj)
+                        ind = ind[::-1]
+                        # находим отсортированные массивы xj и y
+                        xj_s = xj[ind]
+                        y_s = y[ind]
+                        # считаем оптимальный порог
+                        sum_y = 0
+                        cnt = 0
+                        max_rel = -1
+                        max_threshold = None
+                        for i in range(xj_s.size):
+                            sum_y += y_s[i]
+                            cnt += 1
+                            rel = sum_y / cnt
+                            if sum_y >= 5 and rel > max_rel:
+                                max_rel = rel
+                                max_threshold = xj_s[i]
+                        if max_rel > best_rel:
+                            best_rel = max_rel
+                            best_threshold = max_threshold
+                            best_k = k
+                            best_j = j
+            selected_pairs.append((best_k, best_j))
+            thresholds.append(best_threshold)
+            if self.verbose_training:
+                print("Начальная комбинация:", "k =", best_k, ", j =", best_j, "порог =", best_threshold)
+        for (k, j), threshold in zip(selected_pairs, thresholds):
+            self.combined_features.append((k, j, threshold))
+            self.combined_weights = np.append(self.combined_weights, [0.0])
+
+        # добавляем основные комбинированные признаки
+        for it in range(self.Ks, self.K):
             # добавляем дополнительный комбинированный признак
             # для этого выбираем его из условия максимума TPV/FPV
             bin_x = self.dichotomize_combined(x)

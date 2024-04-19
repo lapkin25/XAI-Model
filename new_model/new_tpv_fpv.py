@@ -55,6 +55,10 @@ def new_max_ones_zeros(x_, y_, labels_, min_ones_count, a0, b0, da, db):
                         b1 = y[i]
 
     if max_rel is None:
+        #if max_rel1 is None:
+        #    print(x)
+        #    print(y)
+        #    print(labels)
         # берем максимум без ограничения на принадлежность точки окрестности
         return a1, b1, max_rel1
     else:

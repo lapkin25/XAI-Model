@@ -10,7 +10,11 @@ class AdjustIntercept:
         self.weights = weights
         self.intercept = initial_intercept
 
-    def fit(self, x, y, p_threshold=0.05, use_sensitivity=False):
+    def fit(self, x, y, p_threshold=0.05, use_sensitivity=False, fix_sensitivity=None):
+
+        use_sensitivity = True
+        fix_sensitivity = 0.8
+
         data_size, num_features = x.shape[0], x.shape[1]
 
         def f_and_df(w0):
@@ -52,8 +56,8 @@ class AdjustIntercept:
                     fp -= 1
                 sens = tp / (tp + fn)
                 spec = tn / (tn + fp)
-                if spec >= sens:
-                    logit_threshold = logit[ind[i]]
+                if (fix_sensitivity is not None and sens < fix_sensitivity) or spec >= sens:
+                    logit_threshold = logit[ind[i]] + 1e-9
                     break
             # решаем уравнение: sigmoid(logit_threshold + intercept) = p_threshold
             return inv_sigmoid(p_threshold) - logit_threshold

@@ -100,12 +100,17 @@ for it in range(1, 1 + num_splits):
 #        K=num_combined_features, delta_a=0.2, delta_w=0.3,
 #        individual_training_iterations=25, combined_training_iterations=10)
     model.fit(x_train, y_train)
-    #model.fit_intercept(x_train, y_train)
-
+    print("Начальная модель")
     print_model(model, data)
     test_model(model, x_test, y_test, threshold)
 
-"""
+    ind_model = IndividualMaxAUCModel(verbose_training=True,
+                                      training_iterations=20)
+    ind_model.fit(x_train, y_train)
+    print("Модель с индивидуальными признаками")
+    print_model(ind_model, data)
+    test_model(ind_model, x_test, y_test, threshold)
+
     # проверяем модель
     print("Проверка модели 1")
     model1 = LogisticRegression()
@@ -114,10 +119,9 @@ for it in range(1, 1 + num_splits):
 
     # проверяем модель
     print("Проверка модели 2")
-    ind_model = IndividualMaxAUCModel(verbose_training=False,
-        training_iterations=25)
-    ind_model.fit(x_train, y_train)
-    ind_model.fit_intercept(x_train, y_train)
+    #ind_model = IndividualMaxAUCModel(verbose_training=False,
+    #    training_iterations=20)
+    #ind_model.fit(x_train, y_train)
     #test_model(ind_model, x_test, y_test, threshold)
     bin_x_train = ind_model.dichotomize(x_train)
     bin_x_test = ind_model.dichotomize(x_test)
@@ -126,6 +130,7 @@ for it in range(1, 1 + num_splits):
     #print("Веса =", model2.coef_)
     auc2, sen2, spec2 = test_model(model2, bin_x_test, y_test, threshold)
 
+"""
     # проверяем модель
     print("Проверка модели 3")
     bin_x_train_combined = model.dichotomize_combined(x_train)

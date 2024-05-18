@@ -86,6 +86,14 @@ class IndividualMaxAUCModel:
                 print("Iteration", it + 1)
             self.make_iteration(x, y)
 
+        # настраиваем веса с найденными порогами
+        bin_x = self.dichotomize(x)
+        logist_reg = LogisticRegression()
+        logist_reg.fit(bin_x, y)
+
+        self.weights = logist_reg.coef_.ravel()
+        self.intercept = logist_reg.intercept_[0]
+
 
     def make_iteration(self, x, y):
         data_size, num_features = x.shape[0], x.shape[1]

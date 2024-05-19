@@ -160,7 +160,7 @@ class IndividualMaxAUCModel:
 
 
 class CombinedMaxAUCModel:
-    def __init__(self, ind_model, verbose_training=False, K=10, combined_training_iterations=20):
+    def __init__(self, ind_model, verbose_training=False, K=10):
         self.ind_model = ind_model
         self.cutoffs = None
         self.individual_weights = None
@@ -170,7 +170,6 @@ class CombinedMaxAUCModel:
 
         self.verbose_training = verbose_training
         self.K = K
-        self.combined_training_iterations = combined_training_iterations
 
     def fit(self, x, y):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -261,5 +260,3 @@ class CombinedMaxAUCModel:
         z = np.dot(bin_x, self.combined_weights) + self.intercept
         probs = np.array([stable_sigmoid(value) for value in z])
         return np.c_[1 - probs, probs]
-
-

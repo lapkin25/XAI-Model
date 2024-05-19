@@ -223,7 +223,7 @@ class CombinedMaxAUCModel:
                         if max_auc is None or roc_auc > max_auc:
                             max_auc = roc_auc
                             optimal_cutoff = cutoff
-                    print("k =", k, " j =", j, "xj_cutoff =", optimal_cutoff, "auc =", max_auc)
+                    # print("k =", k, " j =", j, "xj_cutoff =", optimal_cutoff, "auc =", max_auc)
                     if max_auc > best_auc:
                         best_auc = max_auc
                         best_j = j

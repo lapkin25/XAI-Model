@@ -2,12 +2,14 @@ import sys
 sys.path.insert(1, '../dichotomization')
 
 from dichotomization.read_data import Data
-from max_auc_model import InitialMaxAUCModel, IndividualMaxAUCModel # , CombinedMaxAUCModel
+from max_auc_model import InitialMaxAUCModel, IndividualMaxAUCModel, CombinedMaxAUCModel
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn import metrics as sklearn_metrics
 from permetrics.classification import ClassificationMetric
+import csv
+
 
 def find_predictors_to_invert(data, predictors):
     # обучаем логистическую регрессию с выделенными признаками,
@@ -30,7 +32,6 @@ def print_model(model, data):
         val = data.get_coord(feature_name, model.cutoffs[k])
         s = '≤' if feature_name in data.inverted_predictors else '≥'
         print(feature_name, " ", s, val, sep='')
-    """
     print("Комбинированные пороги:")
     for k, j, xj_cutoff in model.combined_features:
         feature_name = predictors[k]
@@ -57,7 +58,7 @@ def print_model(model, data):
     print("Веса:", model.individual_weights)
     print("Комбинированные веса:", model.combined_weights)
     print("Интерсепт:", model.intercept)
-    """
+
 
 def test_model(model, x_test, y_test, p_threshold):
     p = model.predict_proba(x_test)[:, 1]
@@ -82,33 +83,26 @@ threshold = 0.04
 num_combined_features = 30
 
 num_splits = 20
-import csv
+
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
-csvwriter.writerow(["auc1", "sen1", "spec1", "auc2", "sen2", "spec2", "auc3", "sen3", "spec3"])
+csvwriter.writerow(["auc0", "sen0", "spec0", "auc1", "sen1", "spec1", "auc2", "sen2", "spec2", "auc3", "sen3", "spec3"])
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
     x_train, x_test, y_train, y_test = \
         train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=123)  # закомментировать random_state
 
-    model = InitialMaxAUCModel()
-    #
-    #model = CombinedMaxAUCModel(verbose_training=True, K=num_combined_features,
-    #                            individual_training_iterations=25,
-    #                            combined_training_iterations=10)
-#    model = NewCombinedFeaturesModel(verbose_training=False, p0=threshold,
-#        K=num_combined_features, delta_a=0.2, delta_w=0.3,
-#        individual_training_iterations=25, combined_training_iterations=10)
-    model.fit(x_train, y_train)
+    initial_model = InitialMaxAUCModel()
+    initial_model.fit(x_train, y_train)
     print("Начальная модель")
-    print_model(model, data)
-    auc0, sen0, spec0 = test_model(model, x_test, y_test, threshold)
+    #print_model(initial_model, data)
+    auc0, sen0, spec0 = test_model(initial_model, x_test, y_test, threshold)
 
     ind_model = IndividualMaxAUCModel(verbose_training=True,
                                       training_iterations=10)
     ind_model.fit(x_train, y_train)
     print("Модель с индивидуальными признаками")
-    print_model(ind_model, data)
+    #print_model(ind_model, data)
     auc2, sen2, spec2 = test_model(ind_model, x_test, y_test, threshold)
 
     # непрерывная модель
@@ -117,7 +111,14 @@ for it in range(1, 1 + num_splits):
     continuous_model.fit(x_train, y_train)
     auc1, sen1, spec1 = test_model(continuous_model, x_test, y_test, threshold)
 
-    csvwriter.writerow(map(str, [auc0, sen0, spec0, auc1, sen1, spec1, auc2, sen2, spec2]))
+    model = CombinedMaxAUCModel(ind_model, verbose_training=True,
+        K=num_combined_features, combined_training_iterations=10)
+    model.fit(x_train, y_train)
+    print("Модель с комбинированными признаками")
+    print_model(model, data)
+    auc3, sen3, spec3 = test_model(model, x_test, y_test, threshold)
+
+    csvwriter.writerow(map(str, [auc0, sen0, spec0, auc1, sen1, spec1, auc2, sen2, spec2, auc3, sen3, spec3]))
 
 """
     # проверяем модель

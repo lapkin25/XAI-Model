@@ -183,23 +183,25 @@ class CombinedMaxAUCModel:
             # для этого выбираем его из условия максимума AUC
             self.add_combined_feature(x, y, it)
 
-        # удаляем первые 5 комбинированных признаков
-        for it in range(5):
-            self.combined_features.pop(0)
-            self.combined_weights.pop(0)
+        # повторяем 3 круга: удаляем первые признаки, а потом добавляем заново
+        for _ in range(3):
+            # удаляем первые 5 комбинированных признаков
+            for it in range(5):
+                self.combined_features.pop(0)
+                # self.combined_weights.pop(0)
 
-        # настраиваем все веса с найденными порогами
-        bin_x = self.dichotomize_combined(x)
-        logist_reg = LogisticRegression()
-        logist_reg.fit(bin_x, y)
-        self.combined_weights = logist_reg.coef_.ravel()
-        self.intercept = logist_reg.intercept_[0]
+            # настраиваем все веса с найденными порогами
+            bin_x = self.dichotomize_combined(x)
+            logist_reg = LogisticRegression()
+            logist_reg.fit(bin_x, y)
+            self.combined_weights = logist_reg.coef_.ravel()
+            self.intercept = logist_reg.intercept_[0]
 
-        # добавляем 5 признаков заново
-        for it in range(5):
-            # добавляем дополнительный комбинированный признак
-            # для этого выбираем его из условия максимума AUC
-            self.add_combined_feature(x, y, it)
+            # добавляем 5 признаков заново
+            for it in range(5):
+                # добавляем дополнительный комбинированный признак
+                # для этого выбираем его из условия максимума AUC
+                self.add_combined_feature(x, y, it)
 
     def add_combined_feature(self, x, y, it):
         data_size, num_features = x.shape[0], x.shape[1]

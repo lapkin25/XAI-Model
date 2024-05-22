@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.metrics import roc_curve, auc
 
 
 class AllPairs:
@@ -47,3 +48,33 @@ class AllPairs:
         ind = np.argsort(probs)
         ind = ind[::-1]
         self.combined_features = [self.combined_features[i] for i in ind]
+
+    def fit_auc(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        self.cutoffs = self.ind_model.cutoffs
+        self.individual_weights = self.ind_model.weights
+        self.intercept = self.ind_model.intercept
+        self.combined_features = []
+        self.combined_weights = []
+        for k in range(num_features):
+            filtering_k = x[:, k] >= self.cutoffs[k]
+            for j in range(num_features):
+                if k == j:
+                    continue
+                # разбиваем диапазон значений j-го признака на 100 частей
+                grid = np.linspace(np.min(x[:, j]), np.max(x[:, j]), 100, endpoint=False)
+                max_auc = None
+                optimal_cutoff = None
+                for cutoff in grid:
+                    # бинаризуем данные с выбранным порогом
+                    filtering_kj = x[filtering_k, j] >= cutoff
+                    y_pred = np.where(filtering_kj, 1, 0)
+                    # находим AUC для построенной модели
+                    fpr, tpr, _ = roc_curve(y[filtering_k], y_pred)
+                    roc_auc = auc(fpr, tpr)
+                    if max_auc is None or roc_auc > max_auc:
+                        max_auc = roc_auc
+                        optimal_cutoff = cutoff
+                print("k =", k, "j = ", j, "AUC =", max_auc)
+                self.combined_features.append((k, j, optimal_cutoff))
+                self.combined_weights.append(0.0)

@@ -107,7 +107,8 @@ for it in range(1, 1 + num_splits):
     auc2, sen2, spec2 = test_model(ind_model, x_test, y_test, threshold)
 
     all_pairs = AllPairs(ind_model)
-    all_pairs.fit(x_train, y_train)
+    #all_pairs.fit(x_train, y_train)
+    all_pairs.fit_auc(x_train, y_train)
     print_model(all_pairs, data)
 
     # непрерывная модель

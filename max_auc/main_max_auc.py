@@ -3,6 +3,7 @@ sys.path.insert(1, '../dichotomization')
 
 from dichotomization.read_data import Data
 from max_auc_model import InitialMaxAUCModel, IndividualMaxAUCModel, CombinedMaxAUCModel
+from max_tpv_fpv_pairs import AllPairs
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -52,9 +53,9 @@ def print_model(model, data):
                     tp += 1
                 else:
                     fp += 1
-        print("   TP = ", tp, " FP = ", fp)
+        print("   TP = ", tp, " FP = ", fp, " Prob = ", tp / (tp + fp))
         cm = ClassificationMetric(data.y, y_pred)
-        print("Gini = ", cm.gini_index(average=None))
+        print("   Gini = ", cm.gini_index(average=None))
     print("Веса:", model.individual_weights)
     print("Комбинированные веса:", model.combined_weights)
     print("Интерсепт:", model.intercept)
@@ -104,6 +105,10 @@ for it in range(1, 1 + num_splits):
     print("Модель с индивидуальными признаками")
     #print_model(ind_model, data)
     auc2, sen2, spec2 = test_model(ind_model, x_test, y_test, threshold)
+
+    all_pairs = AllPairs(ind_model)
+    all_pairs.fit(x_train, y_train)
+    print_model(all_pairs, data)
 
     # непрерывная модель
     print("Непрерывная модель")

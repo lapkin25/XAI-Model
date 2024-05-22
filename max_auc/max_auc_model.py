@@ -287,6 +287,93 @@ class CombinedMaxAUCModel:
 
 class SelectedCombinedMaxAUCModel:
     # на вход подается модель AllPairs - то есть признаки с уже найденными порогами
-    # модель должна выбрать отобрать небольшое число признаков из условия max AUC
+    # модель должна отобрать небольшое число признаков из условия max AUC
     # двухфакторной модели: имеющиеся признаки с найденными весами плюс новый признак
-    pass
+    def __init__(self, model_all_pairs, verbose_training=False, K=10):
+        self.model_all_pairs = model_all_pairs
+        self.cutoffs = None
+        self.individual_weights = None
+        self.intercept = None
+        self.combined_features = None  # список троек (k, j, xj_cutoff)
+        self.combined_weights = None
+
+        self.verbose_training = verbose_training
+        self.K = K
+
+    def fit(self, x, y):
+        self.cutoffs = self.model_all_pairs.cutoffs
+        self.individual_weights = self.model_all_pairs.individual_weights
+        self.intercept = self.model_all_pairs.intercept
+        self.combined_features = []
+        self.combined_weights = []
+
+        for it in range(self.K):
+            # добавляем дополнительный комбинированный признак
+            # для этого выбираем его из условия максимума AUC
+            self.add_combined_feature(x, y, it)
+
+    def add_combined_feature(self, x, y, it):
+        data_size, num_features = x.shape[0], x.shape[1]
+        bin_x = self.dichotomize_combined(x)
+        best_auc = 0.0
+        best_k = None
+        best_j = None
+        best_xj_cutoff = None
+        for k, j, xj_cutoff in self.model_all_pairs.combined_features:
+            # проверяем, добавлялось ли такое сочетание признаков
+            ok = True
+            for k1, j1, _ in self.combined_features:
+                if k1 == k and j1 == j:
+                    ok = False
+            if not ok:
+                continue
+
+            bin_xk = np.where(x[:, k] >= self.cutoffs[k], 1, 0).reshape(-1, 1)
+            bin_xj = np.where(x[:, j] >= xj_cutoff, 1, 0).reshape(-1, 1)
+            # взвешенная сумма для остальных признаков
+            rest = np.array([np.dot(self.combined_weights, bin_x[i]) for i in range(data_size)]).reshape(-1, 1)
+            # обучаем модель логистической регрессии на бинаризованных данных
+            log_reg = LogisticRegression(solver='lbfgs', max_iter=10000)
+            # два признака: взвешенная сумма остальных признаков и бинарный признак x_k & x_j
+            new_x = np.c_[rest, bin_xk * bin_xj]
+            log_reg.fit(new_x, y)
+            y_pred_log = log_reg.predict_proba(new_x)[:, 1]
+            # находим AUC для построенной модели
+            fpr, tpr, _ = roc_curve(y, y_pred_log)
+            roc_auc = auc(fpr, tpr)
+            if roc_auc > best_auc:
+                best_auc = roc_auc
+                best_j = j
+                best_k = k
+                best_xj_cutoff = xj_cutoff
+
+        # добавляем новую комбинацию признаков
+        if self.verbose_training:
+            print("Новая комбинация №", it + 1, ": k =", best_k, ", j =", best_j,
+                  ", порог для xj =", best_xj_cutoff, ", AUC =", best_auc)
+        self.combined_features.append((best_k, best_j, best_xj_cutoff))
+
+        # настраиваем все веса с найденными порогами
+        bin_x = self.dichotomize_combined(x)
+        logist_reg = LogisticRegression()
+        logist_reg.fit(bin_x, y)
+        self.combined_weights = logist_reg.coef_.ravel()
+        self.intercept = logist_reg.intercept_[0]
+
+    def dichotomize_combined(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        bin_x = np.empty_like(x, dtype=int)
+        for k in range(num_features):
+            bin_x[:, k] = np.where(x[:, k] >= self.cutoffs[k], 1, 0)
+        bin_x_combined = np.empty((data_size, len(self.combined_features)), dtype=int)
+        for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
+            filtering = x[:, j] >= xj_cutoff
+            new_feature = bin_x[:, k].astype(bool) & filtering
+            bin_x_combined[:, i] = new_feature
+        return bin_x_combined
+
+    def predict_proba(self, x):
+        bin_x = self.dichotomize_combined(x)
+        z = np.dot(bin_x, self.combined_weights) + self.intercept
+        probs = np.array([stable_sigmoid(value) for value in z])
+        return np.c_[1 - probs, probs]

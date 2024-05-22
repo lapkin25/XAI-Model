@@ -283,3 +283,10 @@ class CombinedMaxAUCModel:
         z = np.dot(bin_x, self.combined_weights) + self.intercept
         probs = np.array([stable_sigmoid(value) for value in z])
         return np.c_[1 - probs, probs]
+
+
+class SelectedCombinedMaxAUCModel:
+    # на вход подается модель AllPairs - то есть признаки с уже найденными порогами
+    # модель должна выбрать отобрать небольшое число признаков из условия max AUC
+    # двухфакторной модели: имеющиеся признаки с найденными весами плюс новый признак
+    pass

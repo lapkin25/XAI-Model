@@ -172,7 +172,7 @@ class CombinedMaxAUCModel:
         self.K = K
         self.combined_training_iterations = combined_training_iterations
 
-    def fit(self, x, y):
+    def fit(self, x, y, refresh_features=False):
         self.cutoffs = self.ind_model.cutoffs
         self.individual_weights = self.ind_model.weights
         self.intercept = self.ind_model.intercept
@@ -187,26 +187,29 @@ class CombinedMaxAUCModel:
                 print("Combined iteration", it1 + 1)
                 self.make_iteration_combined(x, y)
 
-        # повторяем 3 круга: удаляем первые признаки, а потом добавляем заново
-        for _ in range(3):
-            # удаляем первые 5 комбинированных признаков
-            for it in range(5):
-                self.combined_features.pop(0)
-                # self.combined_weights.pop(0)
+        if refresh_features:
+            # повторяем 3 круга: удаляем первые признаки, а потом добавляем заново
+            for _ in range(3):
+                # удаляем первые 5 комбинированных признаков
+                for it in range(5):
+                    self.combined_features.pop(0)
+                    # self.combined_weights.pop(0)
 
-            # настраиваем все веса с найденными порогами
-            bin_x = self.dichotomize_combined(x)
-            logist_reg = LogisticRegression()
-            logist_reg.fit(bin_x, y)
-            self.combined_weights = logist_reg.coef_.ravel()
-            self.intercept = logist_reg.intercept_[0]
+                # настраиваем все веса с найденными порогами
+                bin_x = self.dichotomize_combined(x)
+                logist_reg = LogisticRegression()
+                logist_reg.fit(bin_x, y)
+                self.combined_weights = logist_reg.coef_.ravel()
+                self.intercept = logist_reg.intercept_[0]
 
-            # добавляем 5 признаков заново
-            for it in range(5):
-                # добавляем дополнительный комбинированный признак
-                # для этого выбираем его из условия максимума AUC
-                self.add_combined_feature(x, y, it)
-                self.make_iteration_combined(x, y)
+                # добавляем 5 признаков заново
+                for it in range(5):
+                    # добавляем дополнительный комбинированный признак
+                    # для этого выбираем его из условия максимума AUC
+                    self.add_combined_feature(x, y, it)
+                    for it1 in range(self.combined_training_iterations):
+                        print("Combined iteration", it1 + 1)
+                        self.make_iteration_combined(x, y)
 
     def make_iteration_combined(self, x, y):
         data_size, num_features = x.shape[0], x.shape[1]

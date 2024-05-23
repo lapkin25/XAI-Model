@@ -126,7 +126,8 @@ for it in range(1, 1 + num_splits):
     continuous_model.fit(x_train, y_train)
     auc1, sen1, spec1 = test_model(continuous_model, x_test, y_test, threshold)
 
-    model = CombinedMaxAUCModel(ind_model, verbose_training=True, K=num_combined_features, combined_training_iterations=10)
+    model = CombinedMaxAUCModel(ind_model, verbose_training=True, K=num_combined_features,
+                                combined_training_iterations=10, refresh_features=True)
     model.fit(x_train, y_train)
     print("Модель с комбинированными признаками")
     print_model(model, data)

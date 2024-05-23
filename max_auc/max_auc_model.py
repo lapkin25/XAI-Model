@@ -160,7 +160,8 @@ class IndividualMaxAUCModel:
 
 
 class CombinedMaxAUCModel:
-    def __init__(self, ind_model, verbose_training=False, K=10, combined_training_iterations=0):
+    def __init__(self, ind_model, verbose_training=False, K=10,
+                 combined_training_iterations=0, refresh_features=False):
         self.ind_model = ind_model
         self.cutoffs = None
         self.individual_weights = None
@@ -171,8 +172,9 @@ class CombinedMaxAUCModel:
         self.verbose_training = verbose_training
         self.K = K
         self.combined_training_iterations = combined_training_iterations
+        self.refresh_features = refresh_features
 
-    def fit(self, x, y, refresh_features=False):
+    def fit(self, x, y):
         self.cutoffs = self.ind_model.cutoffs
         self.individual_weights = self.ind_model.weights
         self.intercept = self.ind_model.intercept
@@ -187,7 +189,7 @@ class CombinedMaxAUCModel:
                 print("Combined iteration", it1 + 1)
                 self.make_iteration_combined(x, y)
 
-        if refresh_features:
+        if self.refresh_features:
             # повторяем 3 круга: удаляем первые признаки, а потом добавляем заново
             for _ in range(3):
                 # удаляем первые 5 комбинированных признаков

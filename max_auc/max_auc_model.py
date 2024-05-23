@@ -195,7 +195,7 @@ class CombinedMaxAUCModel:
                 # удаляем первые 3 комбинированных признаков
                 for it in range(3):
                     self.combined_features.pop(0)
-                    # self.combined_weights.pop(0)
+                self.combined_weights = self.combined_weights[3:]
 
                 for it1 in range(2 * self.combined_training_iterations):
                     print("Combined iteration", it1 + 1)

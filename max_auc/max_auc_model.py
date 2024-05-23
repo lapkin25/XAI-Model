@@ -190,10 +190,10 @@ class CombinedMaxAUCModel:
                 self.make_iteration_combined(x, y)
 
         if self.refresh_features:
-            # повторяем 3 круга: удаляем первые признаки, а потом добавляем заново
-            for _ in range(3):
-                # удаляем первые 5 комбинированных признаков
-                for it in range(5):
+            # повторяем 2 круга: удаляем первые признаки, а потом добавляем заново
+            for _ in range(2):
+                # удаляем первые 3 комбинированных признаков
+                for it in range(3):
                     self.combined_features.pop(0)
                     # self.combined_weights.pop(0)
 
@@ -204,8 +204,8 @@ class CombinedMaxAUCModel:
                 self.combined_weights = logist_reg.coef_.ravel()
                 self.intercept = logist_reg.intercept_[0]
 
-                # добавляем 5 признаков заново
-                for it in range(5):
+                # добавляем 3 признаков заново
+                for it in range(3):
                     # добавляем дополнительный комбинированный признак
                     # для этого выбираем его из условия максимума AUC
                     self.add_combined_feature(x, y, it)

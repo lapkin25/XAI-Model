@@ -82,7 +82,7 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
 threshold = 0.04
-num_combined_features = 12
+num_combined_features = 10
 
 num_splits = 5
 
@@ -127,7 +127,7 @@ for it in range(1, 1 + num_splits):
     auc1, sen1, spec1 = test_model(continuous_model, x_test, y_test, threshold)
 
     model = CombinedMaxAUCModel(ind_model, verbose_training=True, K=num_combined_features,
-                                combined_training_iterations=10, refresh_features=True)
+                                combined_training_iterations=5, refresh_features=True)
     model.fit(x_train, y_train)
     print("Модель с комбинированными признаками")
     print_model(model, data)

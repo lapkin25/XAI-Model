@@ -197,6 +197,10 @@ class CombinedMaxAUCModel:
                     self.combined_features.pop(0)
                     # self.combined_weights.pop(0)
 
+                for it1 in range(2 * self.combined_training_iterations):
+                    print("Combined iteration", it1 + 1)
+                    self.make_iteration_combined(x, y)
+
                 # настраиваем все веса с найденными порогами
                 bin_x = self.dichotomize_combined(x)
                 logist_reg = LogisticRegression()

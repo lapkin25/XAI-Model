@@ -160,7 +160,7 @@ class IndividualMaxAUCModel:
 
 
 class CombinedMaxAUCModel:
-    def __init__(self, ind_model, verbose_training=False, K=10):
+    def __init__(self, ind_model, verbose_training=False, K=10, combined_training_iterations=0):
         self.ind_model = ind_model
         self.cutoffs = None
         self.individual_weights = None
@@ -170,6 +170,7 @@ class CombinedMaxAUCModel:
 
         self.verbose_training = verbose_training
         self.K = K
+        self.combined_training_iterations = combined_training_iterations
 
     def fit(self, x, y):
         self.cutoffs = self.ind_model.cutoffs
@@ -182,6 +183,9 @@ class CombinedMaxAUCModel:
             # добавляем дополнительный комбинированный признак
             # для этого выбираем его из условия максимума AUC
             self.add_combined_feature(x, y, it)
+            for it1 in range(self.combined_training_iterations):
+                print("Combined iteration", it1 + 1)
+                self.make_iteration_combined(x, y)
 
         # повторяем 3 круга: удаляем первые признаки, а потом добавляем заново
         for _ in range(3):
@@ -202,6 +206,62 @@ class CombinedMaxAUCModel:
                 # добавляем дополнительный комбинированный признак
                 # для этого выбираем его из условия максимума AUC
                 self.add_combined_feature(x, y, it)
+                self.make_iteration_combined(x, y)
+
+    def make_iteration_combined(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        num_combined_features = len(self.combined_features)
+        for s in range(num_combined_features):
+            bin_x = self.dichotomize_combined(x)
+            # для каждой точки найдем значения решающей функции
+            #   (без s-го комбинированного признака)
+            weights1 = np.delete(self.combined_weights, s)
+            bin_x1 = np.delete(bin_x, s, axis=1)
+            # взвешенная сумма для оставшихся признаков
+            rest = np.array([np.dot(weights1, bin_x1[i]) for i in range(data_size)])
+            # параметры s-го комбинированного признака
+            k = self.combined_features[s][0]
+            j = self.combined_features[s][1]
+            bin_xk = np.where(x[:, k] >= self.cutoffs[k], 1, 0).reshape(-1, 1)
+            # обучаем двухфакторную логистическую регрессию:
+            #   один признак rest, другой - бинаризованный x_j (с некоторым порогом)
+            # для этого перебираем пороги
+            grid = np.linspace(np.min(x[:, j]), np.max(x[:, j]), 100, endpoint=False)
+            max_auc = None
+            optimal_cutoff = None
+            for cutoff in grid:
+                # бинаризуем данные с выбранным порогом
+                bin_xj = np.where(x[:, j] >= cutoff, 1, 0).reshape(-1, 1)
+                # обучаем модель логистической регрессии на бинаризованных данных
+                log_reg = LogisticRegression(solver='lbfgs', max_iter=10000)
+                # два признака: взвешенная сумма остальных признаков и бинарный признак x_k & x_j
+                new_x = np.c_[rest, bin_xk * bin_xj]
+                log_reg.fit(new_x, y)
+                y_pred_log = log_reg.predict_proba(new_x)[:, 1]
+                # находим AUC для построенной модели
+                fpr, tpr, _ = roc_curve(y, y_pred_log)
+                roc_auc = auc(fpr, tpr)
+                if max_auc is None or roc_auc > max_auc:
+                    max_auc = roc_auc
+                    optimal_cutoff = cutoff
+                    w_rest = log_reg.coef_.ravel()[0]
+                    wk = log_reg.coef_.ravel()[1]
+                    intercept1 = log_reg.intercept_
+            cur_cutoff = self.combined_features[s][2]
+            cur_weight = self.combined_weights[s]
+
+            self.combined_features[s] = (k, j, optimal_cutoff)
+            # обновляем веса
+            self.combined_weights[s] = wk
+            for s1 in range(num_combined_features):
+                if s1 != s:
+                    self.combined_weights[s1] *= w_rest
+            self.intercept = intercept1
+
+            if self.verbose_training:
+                print("Предиктор", s + 1, ": AUC = ", max_auc,
+                      "; порог =", self.combined_features[s][2], "вместо", cur_cutoff,
+                      "; вес =", self.combined_weights[s], "вместо", cur_weight)
 
     def add_combined_feature(self, x, y, it):
         data_size, num_features = x.shape[0], x.shape[1]

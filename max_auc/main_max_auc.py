@@ -101,12 +101,13 @@ for it in range(1, 1 + num_splits):
     auc0, sen0, spec0 = test_model(initial_model, x_test, y_test, threshold)
 
     ind_model = IndividualMaxAUCModel(verbose_training=True,
-                                      training_iterations=10)
+                                      training_iterations=6)
     ind_model.fit(x_train, y_train)
     print("Модель с индивидуальными признаками")
     #print_model(ind_model, data)
     auc2, sen2, spec2 = test_model(ind_model, x_test, y_test, threshold)
 
+    """
     all_pairs = AllPairs(ind_model)
     #all_pairs.fit(x_train, y_train)
     all_pairs.fit_auc(x_train, y_train)
@@ -117,6 +118,7 @@ for it in range(1, 1 + num_splits):
     print("Модель с выбранными комбинированными признаками")
     print_model(sel_model, data)
     test_model(sel_model, x_test, y_test, threshold)
+    """
 
     # непрерывная модель
     print("Непрерывная модель")
@@ -124,7 +126,7 @@ for it in range(1, 1 + num_splits):
     continuous_model.fit(x_train, y_train)
     auc1, sen1, spec1 = test_model(continuous_model, x_test, y_test, threshold)
 
-    model = CombinedMaxAUCModel(ind_model, verbose_training=True, K=num_combined_features)
+    model = CombinedMaxAUCModel(ind_model, verbose_training=True, K=num_combined_features, combined_training_iterations=5)
     model.fit(x_train, y_train)
     print("Модель с комбинированными признаками")
     print_model(model, data)

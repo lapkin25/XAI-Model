@@ -129,7 +129,6 @@ class AllPairs:
         # далее находим парные пороги
         self.combined_features = []
         self.combined_weights = []
-        """ TODO: исправить ошибки
         for k in range(num_features):
             filtering_k = x[:, k] >= self.cutoffs[k]
             for j in range(num_features):
@@ -140,21 +139,24 @@ class AllPairs:
                 min_entropy = None
                 optimal_cutoff = None
                 for cutoff in grid:
-                    # бинаризуем данные с выбранным порогом
-                    filtering_kj = x[filtering_k, j] >= cutoff
-                    y_pred = np.where(filtering_kj, 1, 0)
-                    N1 = np.sum(y_pred)  # число предсказанных "1"
-                    N0 = y_pred.shape[0] - N1  # число предсказанных "0"
-                    print(y_pred.shape)
+                    xj_filtered = x[filtering_k, j]
+                    y_filtered = y[filtering_k]
+                    y_pred = np.where(xj_filtered >= cutoff, 1, 0).reshape(-1, 1)
+                    cm = confusion_matrix(y_filtered, y_pred)
+                    N0 = cm[0, 0] + cm[1, 0]  # число предсказанных "0"
+                    N1 = cm[0, 1] + cm[1, 1]  # число предсказанных "1"
                     if N1 == 0 or N0 == 0:
                         continue
-                    p0 = np.sum(y[y_pred == 0] == 0) / N0  # вероятность правильного предсказания "нуля"
-                    p1 = np.sum(y[y_pred == 1] == 1) / N1  # вероятность правильного предсказания "единицы"
-                    entropy = -N1 * math.log(p1) - N0 * math.log(p0)
+                    p0 = cm[0, 0] / N0
+                    p1 = cm[1, 1] / N1
+                    if p0 == 0 or p1 == 0:
+                        continue
+                    N = np.sum(filtering_k)
+                    entropy = -(N1 / N) * math.log(p1) - (N0 / N) * math.log(p0) + \
+                              (N1 / N) * math.log(N1 / N) + (N0 / N) * math.log(N0 / N)
                     if min_entropy is None or entropy < min_entropy:
                         min_entropy = entropy
                         optimal_cutoff = cutoff
                 print("k =", k, "j = ", j, " cutoff =", optimal_cutoff)
                 self.combined_features.append((k, j, optimal_cutoff))
                 self.combined_weights.append(0.0)
-        """

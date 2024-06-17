@@ -118,7 +118,7 @@ for it in range(1, 1 + num_splits):
     sel_model.fit(x_train, y_train)
     print("Модель с выбранными комбинированными признаками")
     print_model(sel_model, data)
-    test_model(sel_model, x_test, y_test, threshold)
+    auc3, sen3, spec3 = test_model(sel_model, x_test, y_test, threshold)
     """
 
     # непрерывная модель

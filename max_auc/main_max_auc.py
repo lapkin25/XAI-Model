@@ -5,6 +5,7 @@ from dichotomization.read_data import Data
 from max_auc_model import InitialMaxAUCModel, IndividualMaxAUCModel,\
     CombinedMaxAUCModel, SelectedCombinedMaxAUCModel, RandomForest
 from max_tpv_fpv_pairs import AllPairs
+from extract_rules import ExtractRules
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -113,6 +114,9 @@ for it in range(1, 1 + num_splits):
     #all_pairs.fit_auc(x_train, y_train)
     all_pairs.fit_entropy(x_train, y_train)
     #print_model(all_pairs, data)
+
+    extract_rules = ExtractRules(all_pairs)
+    extract_rules.fit(x_train, y_train)
 
     """
     rf = RandomForest(all_pairs, K=30)

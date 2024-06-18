@@ -115,7 +115,7 @@ for it in range(1, 1 + num_splits):
     all_pairs.fit_entropy(x_train, y_train)
     #print_model(all_pairs, data)
 
-    extract_rules = ExtractRules(all_pairs)
+    extract_rules = ExtractRules(all_pairs, 35)
     extract_rules.fit(x_train, y_train)
     print_model(extract_rules, data)
     auc3, sen3, spec3 = test_model(extract_rules, x_test, y_test, threshold)

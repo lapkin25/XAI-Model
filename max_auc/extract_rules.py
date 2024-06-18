@@ -1,13 +1,14 @@
 import numpy as np
 
 class ExtractRules:
-    def __init__(self, model_all_pairs):
+    def __init__(self, model_all_pairs, K):
         self.model_all_pairs = model_all_pairs
         self.cutoffs = self.model_all_pairs.cutoffs
         self.combined_features = self.model_all_pairs.combined_features
         self.individual_weights = None
         self.combined_weights = None
         self.intercept = None
+        self.K = K
 
     def fit(self, x, y):
         data_size, num_features = x.shape
@@ -45,8 +46,22 @@ class ExtractRules:
             TP_FP_rel.append(TP / FP)
             print("TP =", TP, "FP =", FP)
 
+        # в каждой паре симметричных правил оставляем наиболее качественное
+        deleted = True
+        while deleted:
+            deleted = False
+            for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
+                for i1, (k1, j1, xj_cutoff1) in enumerate(self.combined_features):
+                    if k == j1 and j == k1 and TP_FP_rel[i] >= TP_FP_rel[i1]:
+                        del TP_FP_rel[i1]
+                        del self.combined_features[i1]
+                        deleted = True
+                        break
+                if deleted:
+                    break
+
         # удаляем наименее качественные правила
-        for _ in range(40):
+        while len(self.combined_features) > self.K:
             min_rel = None
             min_i = None
             for i, (k, j, xj_cutoff) in enumerate(self.combined_features):

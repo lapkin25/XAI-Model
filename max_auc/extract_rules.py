@@ -1,8 +1,13 @@
+import numpy as np
+
 class ExtractRules:
     def __init__(self, model_all_pairs):
         self.model_all_pairs = model_all_pairs
         self.cutoffs = self.model_all_pairs.cutoffs
         self.combined_features = self.model_all_pairs.combined_features
+        self.individual_weights = None
+        self.combined_weights = None
+        self.intercept = None
 
     def fit(self, x, y):
         data_size, num_features = x.shape
@@ -41,7 +46,7 @@ class ExtractRules:
             print("TP =", TP, "FP =", FP)
 
         # удаляем наименее качественные правила
-        for _ in range(60):
+        for _ in range(40):
             min_rel = None
             min_i = None
             for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
@@ -74,3 +79,14 @@ class ExtractRules:
                 if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
                     print(k, '&', j, " ", end='')
             print()
+
+    def predict_proba(self, x):
+        data_size, num_features = x.shape
+        probs = np.zeros(data_size)
+        for i in range(data_size):
+            for k, j, xj_cutoff in self.combined_features:
+                # если правило сработало
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    probs[i] = 1
+        return np.c_[1 - probs, probs]
+

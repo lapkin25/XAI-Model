@@ -1,7 +1,9 @@
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import roc_curve, auc
 from dichotomization.calc_functions import stable_sigmoid
+import matplotlib.pyplot as plt
 
 
 class InitialMaxAUCModel:
@@ -446,3 +448,96 @@ class SelectedCombinedMaxAUCModel:
         z = np.dot(bin_x, self.combined_weights) + self.intercept
         probs = np.array([stable_sigmoid(value) for value in z])
         return np.c_[1 - probs, probs]
+
+
+class RandomForest:
+    def __init__(self, model_all_pairs, verbose_training=False, K=10):
+        self.model_all_pairs = model_all_pairs
+        self.cutoffs = None
+        self.individual_weights = None
+        self.intercept = None
+        self.combined_features = None  # список троек (k, j, xj_cutoff)
+        self.combined_weights = None
+        self.K = K
+
+    def fit(self, x, y):
+        self.cutoffs = self.model_all_pairs.cutoffs
+        self.individual_weights = self.model_all_pairs.individual_weights
+        self.intercept = self.model_all_pairs.intercept
+        self.combined_features = self.model_all_pairs.combined_features
+
+        bin_x = self.dichotomize_combined(x)
+        #print(bin_x)
+
+        forest = RandomForestClassifier()
+        forest.fit(bin_x, y)
+
+        importances = forest.feature_importances_
+        sorted_indices = np.argsort(importances)[::-1]
+        """
+        feat_labels = [str(k) + "&" + str(j) for k, j, xj_cutoff in self.combined_features]
+        for f in range(bin_x.shape[1]):
+            print("%2d) %-*s %f" % (f + 1, 30,
+                                    feat_labels[sorted_indices[f]],
+                                    importances[sorted_indices[f]]))
+        """
+        """
+        plt.title('Feature Importance')
+        plt.bar(range(bin_x.shape[1]), importances[sorted_indices], align='center')
+        plt.xticks(range(bin_x.shape[1]), [feat_labels[i] for i in sorted_indices], rotation=90)
+        plt.tight_layout()
+        plt.show()
+        """
+
+        new_combined_features = []
+        for i in sorted_indices:
+            if len(new_combined_features) == self.K:
+                break
+            ok = True
+            for k, j, xj_cutoff in new_combined_features:
+                if k == self.combined_features[i][1] and j == self.combined_features[i][0]:
+                    ok = False
+                    break
+            if not ok:
+                continue
+            new_combined_features.append(self.combined_features[i])
+        self.combined_features = new_combined_features
+
+        #self.combined_features = [self.combined_features[i] for i in sorted_indices[:self.K]]
+        #print(self.combined_features)
+
+        # настраиваем веса
+        bin_x = self.dichotomize_combined(x)
+        logist_reg = LogisticRegression()
+        logist_reg.fit(bin_x, y)
+        self.combined_weights = logist_reg.coef_.ravel()
+        self.intercept = logist_reg.intercept_[0]
+
+        """
+        bin_x = self.dichotomize_combined(x)
+        self.forest = RandomForestClassifier()
+        self.forest.fit(bin_x, y)
+        """
+
+
+    def dichotomize_combined(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        bin_x = np.empty_like(x, dtype=int)
+        for k in range(num_features):
+            bin_x[:, k] = np.where(x[:, k] >= self.cutoffs[k], 1, 0)
+        bin_x_combined = np.empty((data_size, len(self.combined_features)), dtype=int)
+        for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
+            filtering = x[:, j] >= xj_cutoff
+            new_feature = bin_x[:, k].astype(bool) & filtering
+            bin_x_combined[:, i] = new_feature
+        return bin_x_combined
+
+    def predict_proba(self, x):
+        bin_x = self.dichotomize_combined(x)
+        z = np.dot(bin_x, self.combined_weights) + self.intercept
+        probs = np.array([stable_sigmoid(value) for value in z])
+        return np.c_[1 - probs, probs]
+        """
+        bin_x = self.dichotomize_combined(x)
+        return self.forest.predict_proba(bin_x)
+        """

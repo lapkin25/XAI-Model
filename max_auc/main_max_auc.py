@@ -3,7 +3,7 @@ sys.path.insert(1, '../dichotomization')
 
 from dichotomization.read_data import Data
 from max_auc_model import InitialMaxAUCModel, IndividualMaxAUCModel,\
-    CombinedMaxAUCModel, SelectedCombinedMaxAUCModel
+    CombinedMaxAUCModel, SelectedCombinedMaxAUCModel, RandomForest
 from max_tpv_fpv_pairs import AllPairs
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -107,13 +107,22 @@ for it in range(1, 1 + num_splits):
     #print_model(ind_model, data)
     auc2, sen2, spec2 = test_model(ind_model, x_test, y_test, threshold)
 
-    """
+
     all_pairs = AllPairs(ind_model)
     ##all_pairs.fit(x_train, y_train)
     #all_pairs.fit_auc(x_train, y_train)
     all_pairs.fit_entropy(x_train, y_train)
-    print_model(all_pairs, data)
+    #print_model(all_pairs, data)
 
+    """
+    rf = RandomForest(all_pairs, K=30)
+    rf.fit(x_train, y_train)
+    print("Модель на основе случайного леса")
+    print_model(rf, data)
+    auc3, sen3, spec3 = test_model(rf, x_test, y_test, threshold)
+    """
+
+    """
     sel_model = SelectedCombinedMaxAUCModel(all_pairs, verbose_training=True, K=num_combined_features)
     sel_model.fit(x_train, y_train)
     print("Модель с выбранными комбинированными признаками")

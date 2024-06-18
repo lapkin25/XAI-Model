@@ -41,7 +41,7 @@ class ExtractRules:
             print("TP =", TP, "FP =", FP)
 
         # удаляем наименее качественные правила
-        for _ in range(40):
+        for _ in range(60):
             min_rel = None
             min_i = None
             for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
@@ -49,7 +49,7 @@ class ExtractRules:
                     min_rel = TP_FP_rel[i]
                     min_i = i
             del TP_FP_rel[min_i]
-            del self.combined_features[i]
+            del self.combined_features[min_i]
 
         # выводим статистику по правилам
         for i, (k, j, xj_cutoff) in enumerate(self.combined_features):

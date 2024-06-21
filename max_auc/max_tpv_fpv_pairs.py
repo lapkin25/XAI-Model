@@ -81,7 +81,7 @@ class AllPairs:
                 self.combined_weights.append(0.0)
 
     # настраивает индивидуальные и комбинированные пороги
-    def fit_entropy(self, x, y):
+    def fit_entropy(self, x, y, simplified=False):
         data_size, num_features = x.shape[0], x.shape[1]
         self.cutoffs = np.zeros(num_features)
         # находим пороги в отдельности для каждого k-го признака
@@ -158,5 +158,10 @@ class AllPairs:
                         min_entropy = entropy
                         optimal_cutoff = cutoff
                 print("k =", k, "j = ", j, " cutoff =", optimal_cutoff)
+
+                # в упрощенной модели берем вторичные пороги такие же, как первичные
+                if simplified:
+                    optimal_cutoff = self.cutoffs[j]
+
                 self.combined_features.append((k, j, optimal_cutoff))
                 self.combined_weights.append(0.0)

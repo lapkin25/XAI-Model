@@ -89,12 +89,14 @@ num_splits = 5
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
-csvwriter.writerow(["auc0", "sen0", "spec0", "auc1", "sen1", "spec1", "auc2", "sen2", "spec2", "auc3", "sen3", "spec3"])
+#csvwriter.writerow(["auc0", "sen0", "spec0", "auc1", "sen1", "spec1", "auc2", "sen2", "spec2", "auc3", "sen3", "spec3"])
+csvwriter.writerow(["auc1", "sen1", "spec1", "auc2", "sen2", "spec2"])
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=123)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=123)  # закомментировать random_state
 
+    """
     initial_model = InitialMaxAUCModel()
     initial_model.fit(x_train, y_train)
     print("Начальная модель")
@@ -107,9 +109,13 @@ for it in range(1, 1 + num_splits):
     print("Модель с индивидуальными признаками")
     #print_model(ind_model, data)
     auc2, sen2, spec2 = test_model(ind_model, x_test, y_test, threshold)
+    """
 
-
-    all_pairs = AllPairs(ind_model)
+    # TODO: вынести индивидуальные пороги в отдельную модель
+    initial_model = InitialMaxAUCModel()
+    initial_model.fit(x_train, y_train)
+    all_pairs = AllPairs(initial_model)
+    #all_pairs = AllPairs(ind_model)
     ##all_pairs.fit(x_train, y_train)
     #all_pairs.fit_auc(x_train, y_train)
     all_pairs.fit_entropy(x_train, y_train)
@@ -119,6 +125,13 @@ for it in range(1, 1 + num_splits):
     extract_rules.fit(x_train, y_train)
     print_model(extract_rules, data)
     auc3, sen3, spec3 = test_model(extract_rules, x_test, y_test, threshold)
+
+    all_pairs1 = AllPairs(initial_model)
+    all_pairs1.fit_entropy(x_train, y_train, simplified=True)
+    extract_rules1 = ExtractRules(all_pairs1, 35)
+    extract_rules1.fit(x_train, y_train)
+    print_model(extract_rules1, data)
+    auc4, sen4, spec4 = test_model(extract_rules1, x_test, y_test, threshold)
 
     """
     rf = RandomForest(all_pairs, K=30)
@@ -136,11 +149,13 @@ for it in range(1, 1 + num_splits):
     auc3, sen3, spec3 = test_model(sel_model, x_test, y_test, threshold)
     """
 
+    """
     # непрерывная модель
     print("Непрерывная модель")
     continuous_model = LogisticRegression()
     continuous_model.fit(x_train, y_train)
     auc1, sen1, spec1 = test_model(continuous_model, x_test, y_test, threshold)
+    """
 
     """
     model = CombinedMaxAUCModel(ind_model, verbose_training=True, K=num_combined_features,
@@ -151,7 +166,8 @@ for it in range(1, 1 + num_splits):
     auc3, sen3, spec3 = test_model(model, x_test, y_test, threshold)
     """
 
-    csvwriter.writerow(map(str, [auc0, sen0, spec0, auc1, sen1, spec1, auc2, sen2, spec2, auc3, sen3, spec3]))
+    #csvwriter.writerow(map(str, [auc0, sen0, spec0, auc1, sen1, spec1, auc2, sen2, spec2, auc3, sen3, spec3]))
+    csvwriter.writerow(map(str, [auc3, sen3, spec3, auc4, sen4, spec4]))
 
 """
     # проверяем модель

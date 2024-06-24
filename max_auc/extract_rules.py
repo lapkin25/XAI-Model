@@ -105,3 +105,13 @@ class ExtractRules:
                     probs[i] = 1
         return np.c_[1 - probs, probs]
 
+    # сколько правил сработало на каждом из наблюдений
+    def count_rules(self, x):
+        data_size, num_features = x.shape
+        rules_cnt = np.zeros(data_size, dtype=int)
+        for i in range(data_size):
+            for k, j, xj_cutoff in self.combined_features:
+                # если правило сработало
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    rules_cnt[i] += 1
+        return rules_cnt

@@ -1,6 +1,8 @@
 import numpy as np
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_curve, auc, confusion_matrix
 import math
+from dichotomization.calc_functions import stable_sigmoid
 
 
 class AllPairs:
@@ -165,3 +167,69 @@ class AllPairs:
 
                 self.combined_features.append((k, j, optimal_cutoff))
                 self.combined_weights.append(0.0)
+
+
+# Модель с индивидуальными порогами,
+#   найденными из критерия минимума энтропии
+class MinEntropyModel:
+    def __init__(self):
+        self.cutoffs = None
+        self.weights = None
+        self.intercept = None
+
+    def fit(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        self.cutoffs = np.zeros(num_features)
+        # находим пороги в отдельности для каждого k-го признака
+        for k in range(num_features):
+            # разбиваем диапазон значений k-го признака на 100 частей
+            grid = np.linspace(np.min(x[:, k]), np.max(x[:, k]), 100, endpoint=False)
+            min_entropy = None
+            optimal_cutoff = None
+            for cutoff in grid:
+                y_pred = np.where(x[:, k] >= cutoff, 1, 0).reshape(-1, 1)
+                cm = confusion_matrix(y, y_pred)
+                #print(cm)
+                N0 = cm[0, 0] + cm[1, 0]  # число предсказанных "0"
+                N1 = cm[0, 1] + cm[1, 1]  # число предсказанных "1"
+                if N1 == 0 or N0 == 0:
+                    continue
+                p0 = cm[0, 0] / N0
+                p1 = cm[1, 1] / N1
+                if p0 == 0 or p1 == 0:
+                    continue
+
+                entropy = -(N1/data_size) * math.log(p1) - (N0/data_size) * math.log(p0) + \
+                          (N1/data_size) * math.log(N1/data_size) + (N0/data_size) * math.log(N0/data_size)
+                #print(N0, N1, p0, p1, entropy)
+                if min_entropy is None or entropy < min_entropy:
+                    min_entropy = entropy
+                    optimal_cutoff = cutoff
+            print("k =", k, " cutoff =", optimal_cutoff)
+            self.cutoffs[k] = optimal_cutoff
+
+            # далее обучим модель логистической регрессии на данных, бинаризованных
+            #   с найденными порогами, чтобы найти весовые коэффициенты и интерсепт
+
+            # бинаризуем данные
+            bin_x = self.dichotomize(x)
+
+            # обучаем логистическую регрессию на бинарных данных
+            logist_reg = LogisticRegression()
+            logist_reg.fit(bin_x, y)
+
+            self.weights = logist_reg.coef_.ravel()
+            self.intercept = logist_reg.intercept_[0]
+
+    def dichotomize(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        bin_x = np.empty_like(x, dtype=int)
+        for k in range(num_features):
+            bin_x[:, k] = np.where(x[:, k] >= self.cutoffs[k], 1, 0)
+        return bin_x
+
+    def predict_proba(self, x):
+        bin_x = self.dichotomize(x)
+        z = np.dot(bin_x, self.weights) + self.intercept
+        probs = np.array([stable_sigmoid(value) for value in z])
+        return np.c_[1 - probs, probs]

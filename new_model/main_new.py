@@ -78,9 +78,9 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
 threshold = 0.04
-num_combined_features = 30
+num_combined_features = 35
 
-num_splits = 10
+num_splits = 30
 import csv
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')

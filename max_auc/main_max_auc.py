@@ -110,7 +110,7 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
 threshold = 0.03  #0.04
-num_combined_features = 10
+num_combined_features = 12  #10
 
 num_splits = 30
 

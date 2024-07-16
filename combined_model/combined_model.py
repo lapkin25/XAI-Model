@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from dichotomization.calc_functions import stable_sigmoid
 from max_auc.max_auc_model import InitialMaxAUCModel
+from max_auc.max_tpv_fpv_pairs import MinEntropyModel
 
 
 # Модель - логистическая регрессия, зависящая от преобразованных признаков z_i
@@ -9,7 +10,7 @@ from max_auc.max_auc_model import InitialMaxAUCModel
 #   и выхода вспомогательной логистической регрессии, построенной на остальных признаках,
 #   обученной на части выборки, состоящей из точек, для которых x'_i = 1
 class CombinedModel:
-    def __init__(self, ind_model, threshold=0.04):
+    def __init__(self, ind_model, threshold=0.04, method="auc"):
         # модель с порогами для отдельных признаков
         self.ind_model = ind_model
         # параметры логистической регрессии, зависящей от z_i
@@ -24,6 +25,8 @@ class CombinedModel:
         # параметры всопогательных логистических регрессий
         self.middle_weights = None
         self.middle_intercept = None
+        # метод нахождения порогов
+        self.method = method
 
     def fit(self, x, y):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -43,7 +46,10 @@ class CombinedModel:
             mid_x = np.c_[x[filtering_k, :k], x[filtering_k, k+1:]]
             mid_y = y[filtering_k]
             # обучаем модель с порогами
-            model = InitialMaxAUCModel()
+            if self.method == "auc":
+                model = InitialMaxAUCModel()
+            elif self.method == "entropy":
+                model = MinEntropyModel()
             model.fit(mid_x, mid_y)
             # сохраняем найденные параметры модели
             self.middle_cutoffs[k, :] = np.concatenate((model.cutoffs[:k], [0.0], model.cutoffs[k:]))

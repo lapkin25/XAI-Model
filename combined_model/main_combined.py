@@ -91,8 +91,8 @@ for it in range(1, 1 + num_splits):
         train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=123)  # закомментировать random_state
 
     print("Начальная модель")
-    #initial_model = InitialMaxAUCModel()
-    initial_model = MinEntropyModel()
+    initial_model = InitialMaxAUCModel()
+    #initial_model = MinEntropyModel()
     initial_model.fit(x_train, y_train)
     print_model(initial_model, data)
     auc0, sen0, spec0 = test_model(initial_model, x_test, y_test, threshold)
@@ -103,8 +103,8 @@ for it in range(1, 1 + num_splits):
     auc1, sen1, spec1 = test_model(continuous_model, x_test, y_test, threshold)
 
     print("Комбинированная модель")
-    #combined_model = CombinedModel(initial_model, threshold=threshold)
-    combined_model = CombinedModel(initial_model, threshold=threshold, method="entropy")
+    combined_model = CombinedModel(initial_model, threshold=threshold)
+    #combined_model = CombinedModel(initial_model, threshold=threshold, method="entropy")
     combined_model.fit(x_train, y_train)
     print_combined_model(combined_model, data)
     auc2, sen2, spec2 = test_model(combined_model, x_test, y_test, threshold)

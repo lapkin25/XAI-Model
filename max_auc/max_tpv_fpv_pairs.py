@@ -117,6 +117,36 @@ class AllPairs:
                 if p0 == 0 or p1 == 0:
                     continue
                 """
+
+                """
+                # вероятности классов
+                P1 = (cm[1, 0] + cm[1, 1]) / data_size
+                P0 = (cm[0, 0] + cm[0, 1]) / data_size
+                # априорная энтропия
+                E = -P1 * math.log(P1) - P0 * math.log(P0)
+
+                # вероятности классов после срабатывания правила
+                P11 = cm[1, 1] / (cm[0, 1] + cm[1, 1])
+                P10 = cm[0, 1] / (cm[0, 1] + cm[1, 1])
+                # условная энтропия
+                if P10 == 0:
+                    E1 = -P11 * math.log(P11)
+                else:
+                    E1 = -P11 * math.log(P11) - P10 * math.log(P10)
+
+                # вероятности классов после не срабатывания правила
+                P01 = cm[1, 0] / (cm[1, 0] + cm[0, 0])
+                P00 = cm[0, 0] / (cm[1, 0] + cm[0, 0])
+                # условная энтропия
+                if P01 == 0:
+                    E0 = - P00 * math.log(P00)
+                else:
+                    E0 = -P01 * math.log(P01) - P00 * math.log(P00)
+
+                # information gain
+                entropy = E - (N1 / data_size) * E1 - (N0 / data_size) * E0
+                """
+
                 entropy = -(N1/data_size) * math.log(p1) - (N0/data_size) * math.log(p0) + \
                           (N1/data_size) * math.log(N1/data_size) + (N0/data_size) * math.log(N0/data_size)
                 #print(N0, N1, p0, p1, entropy)

@@ -118,6 +118,7 @@ class AllPairs:
                     continue
                 """
 
+                """
                 # вероятности классов
                 P1 = (cm[1, 0] + cm[1, 1]) / data_size
                 P0 = (cm[0, 0] + cm[0, 1]) / data_size
@@ -144,10 +145,10 @@ class AllPairs:
 
                 # information gain
                 entropy = -(E - (N1 / data_size) * E1 - (N0 / data_size) * E0)
+                """
 
-
-                #entropy = -(N1/data_size) * math.log(p1) - (N0/data_size) * math.log(p0) + \
-                #          (N1/data_size) * math.log(N1/data_size) + (N0/data_size) * math.log(N0/data_size)
+                entropy = -(N1/data_size) * math.log(p1) - (N0/data_size) * math.log(p0) + \
+                          (N1/data_size) * math.log(N1/data_size) + (N0/data_size) * math.log(N0/data_size)
                 #print(N0, N1, p0, p1, entropy)
                 if min_entropy is None or entropy < min_entropy:
                     min_entropy = entropy

@@ -76,6 +76,7 @@ class ExtractRules:
             print(k, '&', j, "  ", end='')
             print("TP/FP =", TP_FP_rel[i])
 
+        """
         # повторно выводим статистику по наблюдениям
         # TODO: вынести в отдельную функцию
         for i in range(data_size):
@@ -94,6 +95,7 @@ class ExtractRules:
                 if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
                     print(k, '&', j, " ", end='')
             print()
+        """
 
     def predict_proba(self, x):
         data_size, num_features = x.shape

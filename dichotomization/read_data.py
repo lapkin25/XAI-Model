@@ -16,7 +16,7 @@ class Data:
         self.scaler_mean = None
         self.scaler_scale = None
 
-    def prepare(self, selected_predictors, output_feature, invert_predictors):
+    def prepare(self, selected_predictors, output_feature, invert_predictors, scale_data=True):
         """
         selected_predictors - список названий признаков
         output_feature - название выходного признака
@@ -32,11 +32,15 @@ class Data:
         data_x = data_x_y[selected_predictors].to_numpy()
         data_y = data_x_y[output_feature].to_numpy()
 
-        scaler = preprocessing.StandardScaler().fit(data_x)
-        self.scaler_mean = scaler.mean_
-        self.scaler_scale = scaler.scale_
-        self.x = scaler.transform(data_x)
-        self.y = data_y
+        if scale_data:
+            scaler = preprocessing.StandardScaler().fit(data_x)
+            self.scaler_mean = scaler.mean_
+            self.scaler_scale = scaler.scale_
+            self.x = scaler.transform(data_x)
+            self.y = data_y
+        else:
+            self.x = data_x
+            self.y = data_y
 
     def get_coord(self, feature_name, scaled_val):
         """

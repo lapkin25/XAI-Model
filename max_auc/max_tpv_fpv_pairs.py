@@ -96,6 +96,18 @@ class AllPairs:
                 y_pred = np.where(x[:, k] >= cutoff, 1, 0).reshape(-1, 1)
                 cm = confusion_matrix(y, y_pred)
                 #print(cm)
+                tp = cm[1, 1]
+                tn = cm[0, 0]
+                fp = cm[0, 1]
+                fn = cm[1, 0]
+                p1 = (tp + fn) / data_size  # доля реальных единиц в выборке
+                p0 = (tn + fp) / data_size  # доля реальных нулей в выборке
+                q1 = (tp + fp) / data_size  # доля предсказанных единиц
+                q0 = (tn + fn) / data_size  # доля предсказанных нулей
+                if p0 == 0 or p1 == 0 or q0 == 0 or q1 == 0:
+                    continue
+
+                """
                 N0 = cm[0, 0] + cm[1, 0]  # число предсказанных "0"
                 N1 = cm[0, 1] + cm[1, 1]  # число предсказанных "1"
                 if N1 == 0 or N0 == 0:
@@ -104,6 +116,7 @@ class AllPairs:
                 p1 = cm[1, 1] / N1
                 if p0 == 0 or p1 == 0:
                     continue
+                """
 
                 """
                 # бинаризуем данные с выбранным порогом
@@ -147,8 +160,10 @@ class AllPairs:
                 entropy = -(E - (N1 / data_size) * E1 - (N0 / data_size) * E0)
                 """
 
-                entropy = -(N1/data_size) * math.log(p1) - (N0/data_size) * math.log(p0) + \
-                          (N1/data_size) * math.log(N1/data_size) + (N0/data_size) * math.log(N0/data_size)
+                #entropy = -(N1/data_size) * math.log(p1) - (N0/data_size) * math.log(p0) + \
+                #          (N1/data_size) * math.log(N1/data_size) + (N0/data_size) * math.log(N0/data_size)
+                entropy = -p1 * math.log(q1) - p0 * math.log(q0) + \
+                    p1 * math.log(p1) + p0 * math.log(p0)
                 #print(N0, N1, p0, p1, entropy)
                 if min_entropy is None or entropy < min_entropy:
                     min_entropy = entropy
@@ -175,6 +190,19 @@ class AllPairs:
                     y_filtered = y[filtering_k]
                     y_pred = np.where(xj_filtered >= cutoff, 1, 0).reshape(-1, 1)
                     cm = confusion_matrix(y_filtered, y_pred)
+                    N = np.sum(filtering_k)
+                    tp = cm[1, 1]
+                    tn = cm[0, 0]
+                    fp = cm[0, 1]
+                    fn = cm[1, 0]
+                    p1 = (tp + fn) / N  # доля реальных единиц в выборке
+                    p0 = (tn + fp) / N  # доля реальных нулей в выборке
+                    q1 = (tp + fp) / N  # доля предсказанных единиц
+                    q0 = (tn + fn) / N  # доля предсказанных нулей
+                    if p0 == 0 or p1 == 0 or q0 == 0 or q1 == 0:
+                        continue
+
+                    """
                     N0 = cm[0, 0] + cm[1, 0]  # число предсказанных "0"
                     N1 = cm[0, 1] + cm[1, 1]  # число предсказанных "1"
                     if N1 == 0 or N0 == 0:
@@ -184,8 +212,12 @@ class AllPairs:
                     if p0 == 0 or p1 == 0:
                         continue
                     N = np.sum(filtering_k)
-                    entropy = -(N1 / N) * math.log(p1) - (N0 / N) * math.log(p0) + \
-                              (N1 / N) * math.log(N1 / N) + (N0 / N) * math.log(N0 / N)
+                    """
+
+                    #entropy = -(N1 / N) * math.log(p1) - (N0 / N) * math.log(p0) + \
+                    #          (N1 / N) * math.log(N1 / N) + (N0 / N) * math.log(N0 / N)
+                    entropy = -p1 * math.log(q1) - p0 * math.log(q0) + \
+                              p1 * math.log(p1) + p0 * math.log(p0)
                     if min_entropy is None or entropy < min_entropy:
                         min_entropy = entropy
                         optimal_cutoff = cutoff

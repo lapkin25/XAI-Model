@@ -43,7 +43,10 @@ class ExtractRules:
                         TP += 1
                     else:
                         FP += 1
-            TP_FP_rel.append(TP / FP)
+            if FP != 0:
+                TP_FP_rel.append(TP / FP)
+            else:
+                TP_FP_rel.append(1e10)
             print("TP =", TP, "FP =", FP)
 
         # в каждой паре симметричных правил оставляем наиболее качественное

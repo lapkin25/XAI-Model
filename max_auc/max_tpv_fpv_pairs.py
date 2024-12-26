@@ -177,7 +177,7 @@ class AllPairs:
         self.combined_features = []
         self.combined_weights = []
         for k in range(num_features):
-            #filtering_k = x[:, k] >= self.cutoffs[k]
+            filtering_k = x[:, k] >= self.cutoffs[k]
             for j in range(num_features):
                 if k == j:
                     continue
@@ -186,19 +186,6 @@ class AllPairs:
                 min_entropy = None
                 optimal_cutoff = None
                 for cutoff in grid:
-                    y_pred = np.where((x[:, k] >= self.cutoffs[k]) & (x[:, j] >= cutoff), 1, 0).reshape(-1, 1)
-                    cm = confusion_matrix(y, y_pred)
-                    # print(cm)
-                    tp = cm[1, 1]
-                    tn = cm[0, 0]
-                    fp = cm[0, 1]
-                    fn = cm[1, 0]
-                    p1 = (tp + fn) / data_size  # доля реальных единиц в выборке
-                    p0 = (tn + fp) / data_size  # доля реальных нулей в выборке
-                    q1 = (tp + fp) / data_size  # доля предсказанных единиц
-                    q0 = (tn + fn) / data_size  # доля предсказанных нулей
-
-                    """
                     xj_filtered = x[filtering_k, j]
                     y_filtered = y[filtering_k]
                     y_pred = np.where(xj_filtered >= cutoff, 1, 0).reshape(-1, 1)
@@ -212,10 +199,8 @@ class AllPairs:
                     p0 = (tn + fp) / N  # доля реальных нулей в выборке
                     q1 = (tp + fp) / N  # доля предсказанных единиц
                     q0 = (tn + fn) / N  # доля предсказанных нулей
-                    """
                     if p0 == 0 or p1 == 0 or q0 == 0 or q1 == 0:
                         continue
-
 
                     """
                     N0 = cm[0, 0] + cm[1, 0]  # число предсказанных "0"

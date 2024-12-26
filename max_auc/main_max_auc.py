@@ -112,7 +112,7 @@ data.prepare(predictors, "Dead", invert_predictors)
 threshold = 0.03  #0.04
 num_combined_features = 12  #10
 
-num_splits = 1  #30
+num_splits = 50
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
@@ -122,7 +122,7 @@ csvwriter.writerow(["auc1", "sen1", "spec1", "auc2", "sen2", "spec2"])
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=123)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=123)  # закомментировать random_state
 
     """
     initial_model = InitialMaxAUCModel()
@@ -150,7 +150,7 @@ for it in range(1, 1 + num_splits):
     all_pairs.fit_entropy(x_train, y_train)
     #print_model(all_pairs, data)
 
-    extract_rules = ExtractRules(all_pairs, 30)
+    extract_rules = ExtractRules(all_pairs, 45)
     extract_rules.fit(x_train, y_train)
     print_model(extract_rules, data)
     auc3, sen3, spec3 = test_model(extract_rules, x_test, y_test, threshold)
@@ -161,7 +161,7 @@ for it in range(1, 1 + num_splits):
 
     all_pairs1 = AllPairs(initial_model)
     all_pairs1.fit_entropy(x_train, y_train, simplified=True)
-    extract_rules1 = ExtractRules(all_pairs1, 30)
+    extract_rules1 = ExtractRules(all_pairs1, 45)
     extract_rules1.fit(x_train, y_train)
     print_model(extract_rules1, data)
     auc4, sen4, spec4 = test_model(extract_rules1, x_test, y_test, threshold)

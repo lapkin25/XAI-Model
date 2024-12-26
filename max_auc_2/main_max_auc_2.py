@@ -284,7 +284,7 @@ print(px, py, nx, ny)
 threshold = 0.03  #0.04
 num_combined_features = 12  #10
 
-num_splits = 1  # 30
+num_splits = 50
 random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
@@ -295,7 +295,7 @@ for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
 
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=random_state)  # закомментировать random_state
 
     max_auc_2_model = MaxAUC2Model(num_combined_features)
     max_auc_2_model.fit(x_train, y_train)
@@ -308,7 +308,8 @@ for it in range(1, 1 + num_splits):
     for ind1 in range(num_features):
         for ind2 in range(ind1 + 1, num_features):
             if k in max_auc_2_model.features_used:
-                print(ind1, ind2, max_auc_2_model.model.coef_[0][max_auc_2_model.features_used.index(k)])
+                print(ind1, "(" + predictors[ind1] + ")", ind2, "(" + predictors[ind2] + ")",
+                      max_auc_2_model.model.coef_[0][max_auc_2_model.features_used.index(k)])
                 print(max_auc_2_model.thresholds[k])
                 px = max_auc_2_model.thresholds[k]['px']
                 py = max_auc_2_model.thresholds[k]['py']
@@ -316,7 +317,7 @@ for it in range(1, 1 + num_splits):
                 ny = max_auc_2_model.thresholds[k]['ny']
                 print("  Прямая", -nx / ny, "* x +", py + nx / ny * px)
                 print("  AUC =", max_auc_2_model.thresholds[k]['auc'])
-                plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], px, py, nx, ny)
+                #plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], px, py, nx, ny)
             k += 1
 
 

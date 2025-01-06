@@ -100,10 +100,7 @@ def plot_2d(x1, x1_name, x2, x2_name, y, a, b):
 
 
 class MinEntropy2Model:
-    def __init__(self, num_combined_features):
-        self.num_combined_features = num_combined_features
-        self.features_used = None
-        self.model = None
+    def __init__(self):
         self.thresholds = None
 
     def fit(self, x, y):
@@ -117,60 +114,28 @@ class MinEntropy2Model:
                 print(a, b)
                 #print("AUC =", auc1)
                 row = np.zeros(data_size, dtype=int)
+                TP = 0
+                FP = 0
                 for i in range(data_size):
                     if x[i, ind1] >= a and x[i, ind2] >= b:
                         row[i] = 1
+                        if y[i]:
+                            TP += 1
+                        else:
+                            FP += 1
                 if z is None:
                     z = row
                 else:
                     z = np.vstack((z, row))
-                self.thresholds.append({'a': a, 'b': b})
+                self.thresholds.append({'a': a, 'b': b, 'predictor1': ind1, 'predictor2': ind2, 'TP': TP, 'FP': FP})
 
         z = z.T
-        print(z)
+        #print(z)
         print(self.thresholds)
-
-        # Отбор признаков методом включения
-        max_auc = 0.0
-        best_feature = None
-        num_pair_features = z.shape[1]
-        for feature in range(num_pair_features):
-            print("Признак", feature + 1)
-            model = LogisticRegression(solver='lbfgs', max_iter=10000)
-            model.fit(z[:, feature].reshape(-1, 1), y)
-            p = model.predict_proba(z[:, feature].reshape(-1, 1))[:, 1]
-            auc = sklearn_metrics.roc_auc_score(y, p)
-            if auc > max_auc:
-                max_auc = auc
-                best_feature = feature
-        #print(best_feature, max_auc)
-
-        features_used = [best_feature]
-
-        for feature_cnt in range(1, self.num_combined_features):
-            max_auc = 0.0
-            best_feature = None
-            for feature in range(num_pair_features):
-                if feature not in features_used:
-                    features_used.append(feature)
-                    model = LogisticRegression(solver='lbfgs', max_iter=10000)
-                    model.fit(z[:, features_used], y)
-                    p = model.predict_proba(z[:, features_used])[:, 1]
-                    auc = sklearn_metrics.roc_auc_score(y, p)
-                    if auc > max_auc:
-                        max_auc = auc
-                        best_feature = feature
-                    features_used.pop()
-            features_used.append(best_feature)
-            print("AUC =", max_auc)
-
-        model = LogisticRegression(solver='lbfgs', max_iter=10000)
-        model.fit(z[:, features_used], y)
-        self.model = model
-        self.features_used = features_used
 
     def predict_proba(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
+        probs = np.zeros(data_size)
         z = None
         k = 0
         for ind1 in range(num_features):
@@ -189,8 +154,133 @@ class MinEntropy2Model:
 
         z = z.T
 
-        return self.model.predict_proba(z[:, self.features_used])
+        for i in range(data_size):
+            if any(z[i, :]):
+                probs[i] = 1
+            else:
+                probs[i] = 0
 
+        return np.c_[1 - probs, probs]
+
+"""
+class ExtractRules:
+    def __init__(self, model, K):
+        self.model_min_entropy = model
+        self.thresholds = self.thresholds
+        self.K = K
+
+    def fit(self, x, y):
+        data_size, num_features = x.shape
+        # выводим статистику по наблюдениям
+        for i in range(data_size):
+            if y[i] == 0:
+                continue
+            print("i =", i, ", y =", y[i], "  ", end='')
+            for k, j, xj_cutoff in self.combined_features:
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    print(k, '&', j, " ", end='')
+            print()
+        for i in range(data_size):
+            if y[i] == 1:
+                continue
+            print("i =", i, ", y =", y[i], "  ", end='')
+            for k, j, xj_cutoff in self.combined_features:
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    print(k, '&', j, " ", end='')
+            print()
+
+        # выводим статистику по правилам
+        TP_FP_rel = []
+        for k, j, xj_cutoff in self.combined_features:
+            print(k, '&', j, "  ", end='')
+            TP = 0
+            FP = 0
+            for i in range(data_size):
+                # если правило сработало
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    if y[i] == 1:
+                        TP += 1
+                    else:
+                        FP += 1
+            if FP != 0:
+                TP_FP_rel.append(TP / FP)
+            else:
+                TP_FP_rel.append(1e10)
+            print("TP =", TP, "FP =", FP)
+
+        # в каждой паре симметричных правил оставляем наиболее качественное
+        deleted = True
+        while deleted:
+            deleted = False
+            for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
+                for i1, (k1, j1, xj_cutoff1) in enumerate(self.combined_features):
+                    if k == j1 and j == k1 and TP_FP_rel[i] >= TP_FP_rel[i1]:
+                        del TP_FP_rel[i1]
+                        del self.combined_features[i1]
+                        deleted = True
+                        break
+                if deleted:
+                    break
+
+        # удаляем наименее качественные правила
+        while len(self.combined_features) > self.K:
+            min_rel = None
+            min_i = None
+            for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
+                if min_rel is None or TP_FP_rel[i] < min_rel:
+                    min_rel = TP_FP_rel[i]
+                    min_i = i
+            del TP_FP_rel[min_i]
+            del self.combined_features[min_i]
+
+        # выводим статистику по правилам
+        for i, (k, j, xj_cutoff) in enumerate(self.combined_features):
+            print(k, '&', j, "  ", end='')
+            print("TP/FP =", TP_FP_rel[i])
+
+"""
+"""
+        # повторно выводим статистику по наблюдениям
+        # TODO: вынести в отдельную функцию
+        for i in range(data_size):
+            if y[i] == 0:
+                continue
+            print("i =", i, ", y =", y[i], "  ", end='')
+            for k, j, xj_cutoff in self.combined_features:
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    print(k, '&', j, " ", end='')
+            print()
+        for i in range(data_size):
+            if y[i] == 1:
+                continue
+            print("i =", i, ", y =", y[i], "  ", end='')
+            for k, j, xj_cutoff in self.combined_features:
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    print(k, '&', j, " ", end='')
+            print()
+"""
+"""
+    def predict_proba(self, x):
+        data_size, num_features = x.shape
+        probs = np.zeros(data_size)
+        for i in range(data_size):
+            for k, j, xj_cutoff in self.combined_features:
+                # если правило сработало
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    probs[i] = 1
+        return np.c_[1 - probs, probs]
+
+    # сколько правил сработало на каждом из наблюдений
+    def count_rules(self, x):
+        data_size, num_features = x.shape
+        rules_cnt = np.zeros(data_size, dtype=int)
+        for i in range(data_size):
+            for k, j, xj_cutoff in self.combined_features:
+                # если правило сработало
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    rules_cnt[i] += 1
+        return rules_cnt
+"""
 
 data = Data("DataSet.xlsx")
 predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
@@ -210,7 +300,7 @@ plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], da
 threshold = 0.03  #0.04
 num_combined_features = 12  #10
 
-num_splits = 1  #50
+num_splits = 20  #50
 random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
@@ -221,36 +311,41 @@ for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
 
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=random_state)  # закомментировать random_state
 
-    min_entropy_model = MinEntropy2Model(num_combined_features)
+    min_entropy_model = MinEntropy2Model()
     min_entropy_model.fit(x_train, y_train)
 
     print("Обучена модель")
     data_size, num_features = data.x.shape[0], data.x.shape[1]
     #print(max_auc_2_model.model.coef_.ravel())
 
+#    extract_rules1 = ExtractRules(all_pairs1, 30)
+#    extract_rules1.fit(x_train, y_train)
+#    print_model(extract_rules1, data)
+
     k = 0
     for ind1 in range(num_features):
         for ind2 in range(ind1 + 1, num_features):
-            if k in min_entropy_model.features_used:
-                print(ind1, ind2, min_entropy_model.model.coef_[0][min_entropy_model.features_used.index(k)])
-                print(min_entropy_model.thresholds[k])
-                a = min_entropy_model.thresholds[k]['a']
-                b = min_entropy_model.thresholds[k]['b']
+            print(ind1, ind2)
+            print(min_entropy_model.thresholds[k])
+            a = min_entropy_model.thresholds[k]['a']
+            b = min_entropy_model.thresholds[k]['b']
 
-                feature1 = predictors[ind1]
-                feature2 = predictors[ind2]
-                val_a = data.get_coord(feature1, a)
-                val_b = data.get_coord(feature2, b)
-                s1 = '≤' if feature1 in data.inverted_predictors else '≥'
-                s2 = '≤' if feature2 in data.inverted_predictors else '≥'
-                print('  ', feature1, " ", s1, val_a, sep='')
-                print('  ', feature2, " ", s2, val_b, sep='')
-                #print("  AUC =", max_auc_rect_model.thresholds[k]['auc'])
+            feature1 = predictors[ind1]
+            feature2 = predictors[ind2]
+            val_a = data.get_coord(feature1, a)
+            val_b = data.get_coord(feature2, b)
+            s1 = '≤' if feature1 in data.inverted_predictors else '≥'
+            s2 = '≤' if feature2 in data.inverted_predictors else '≥'
+            print('  ', feature1, " ", s1, val_a, sep='')
+            print('  ', feature2, " ", s2, val_b, sep='')
+            print('  ', 'TP =', min_entropy_model.thresholds[k]['TP'])
+            print('  ', 'FP =', min_entropy_model.thresholds[k]['FP'])
+            #print("  AUC =", max_auc_rect_model.thresholds[k]['auc'])
 
-                # вывод графика
-                plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], a, b)
+            # вывод графика
+            #plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], a, b)
 
             k += 1
 

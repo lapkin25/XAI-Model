@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn import metrics as sklearn_metrics
 import csv
+from sklearn.model_selection import StratifiedKFold
 
 
 # Функция возвращает:
@@ -237,6 +238,55 @@ class MaxAUC2Model:
         self.model = model
         self.features_used = features_used
 
+
+    def fit_cross_val(self, x, y, x_final_test, y_final_test):
+        data_size, num_features = x.shape[0], x.shape[1]
+        skf = StratifiedKFold(n_splits=5)
+        #split = skf.split(x, y)
+        # Находим для каждой пары признаков средний порог и средний AUC
+        for ind1 in range(num_features):
+            for ind2 in range(ind1 + 1, num_features):
+                print("ind = ", ind1, "," , ind2)
+                params = []
+                for fold, (train_index, test_index) in enumerate(skf.split(x, y)):  # enumerate(split):
+                    x_train, x_test = x[train_index, :], x[test_index, :]
+                    y_train, y_test = y[train_index], y[test_index]
+                    print("  Fold", fold)
+                    # находим пороги на обучающей выборке
+                    px, py, nx, ny, auc_train = find_threshold_2d(x_train[:, ind1], x_train[:, ind2], y_train[:])
+                    print(px, py, nx, ny)
+                    print("  AUC на обучающей =", auc_train)
+                    # считаем AUC на тестовой выборке
+                    y_pred = np.zeros_like(y_test, dtype=int)
+                    for i in range(x_test.shape[0]):
+                        if nx * (x_test[i, ind1] - px) + ny * (x_test[i, ind2] - py) >= 0:
+                            y_pred[i] = 1
+                    auc_test = sklearn_metrics.roc_auc_score(y_test, y_pred)
+                    print("  AUC на тестовой =", auc_test)
+                    params.append({'px': px, 'py': py, 'nx': nx, 'ny': ny, 'auc': auc_test})
+                mean_auc = np.mean([p['auc'] for p in params])
+                print("Средний AUC =", mean_auc)
+                # усредняем коэффициенты в уравнении прямой
+                mean_nx = np.mean([p['nx'] for p in params])
+                mean_ny = np.mean([p['ny'] for p in params])
+                mean_px = np.mean([p['nx'] * p['px'] + p['ny'] * p['py'] for p in params]) / mean_nx
+                mean_py = 0.0
+                # считаем обычное уравнение прямой
+                #print("Прямая", -mean_nx / mean_ny, "* x +", mean_py + mean_nx / mean_ny * mean_px)
+                print(predictors[ind2], end='')
+                print(' ≥ ' if mean_ny >= 0 else ' ≤ ', end='')
+                print(-mean_nx / mean_ny, '*', predictors[ind1], '+', mean_py + mean_nx / mean_ny * mean_px)
+                # считаем AUC на итоговом тестировании
+                y_pred = np.zeros_like(y_final_test, dtype=int)
+                for i in range(x_final_test.shape[0]):
+                    if mean_nx * (x_final_test[i, ind1] - mean_px) + mean_ny * (x_final_test[i, ind2] - mean_py) >= 0:
+                        y_pred[i] = 1
+                auc_final_test = sklearn_metrics.roc_auc_score(y_final_test, y_pred)
+                print("AUC на итоговом тестировании =", auc_final_test)
+                # сохраняем все параметры для данной пары предикторов
+                # ...
+
+
     def predict_proba(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
         z = None
@@ -284,7 +334,7 @@ print(px, py, nx, ny)
 threshold = 0.03  #0.04
 num_combined_features = 12  #10
 
-num_splits = 50
+num_splits = 1
 random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
@@ -295,10 +345,11 @@ for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
 
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=random_state)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
 
     max_auc_2_model = MaxAUC2Model(num_combined_features)
-    max_auc_2_model.fit(x_train, y_train)
+    #max_auc_2_model.fit(x_train, y_train)
+    max_auc_2_model.fit_cross_val(x_train, y_train, x_test, y_test)
 
     print("Обучена модель")
     data_size, num_features = data.x.shape[0], data.x.shape[1]

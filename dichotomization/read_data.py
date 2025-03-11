@@ -26,11 +26,18 @@ class Data:
         self.output = output_feature
         self.inverted_predictors = invert_predictors
 
+        print("До исключения пропусков:", self.dataset[selected_predictors + [output_feature]].shape)
+
         data_x_y = self.dataset[selected_predictors + [output_feature]].dropna()
+
+        print("После исключения пропусков:", data_x_y.shape)
+
         for feature_name in invert_predictors:
             data_x_y[feature_name] = -data_x_y[feature_name]
         data_x = data_x_y[selected_predictors].to_numpy()
-        data_y = data_x_y[output_feature].to_numpy()
+        data_y = data_x_y[output_feature].to_numpy(dtype=int)
+
+        print("Умерших", np.sum(data_y))
 
         if scale_data:
             scaler = preprocessing.StandardScaler().fit(data_x)

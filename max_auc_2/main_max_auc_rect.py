@@ -9,6 +9,7 @@ import numpy as np
 from sortedcontainers import SortedList
 import matplotlib.pyplot as plt
 import csv
+from sklearn.model_selection import StratifiedKFold
 
 
 def find_predictors_to_invert(data, predictors):
@@ -154,6 +155,103 @@ class MaxAUCRectModel:
         self.model = model
         self.features_used = features_used
 
+
+    def fit_cross_val(self, x, y, x_final_test, y_final_test):
+        data_size, num_features = x.shape[0], x.shape[1]
+        skf = StratifiedKFold(n_splits=5)
+        # Находим для каждой пары признаков средний порог и средний AUC
+        z = None
+        self.thresholds = []
+        for ind1 in range(num_features):
+            for ind2 in range(ind1 + 1, num_features):
+                print("ind = ", ind1, "," , ind2)
+                params = []
+                for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
+                    x_train, x_test = x[train_index, :], x[test_index, :]
+                    y_train, y_test = y[train_index], y[test_index]
+                    print("  Fold", fold)
+                    # находим пороги на обучающей выборке
+                    a, b, auc_train = find_threshold_rect(x_train[:, ind1], x_train[:, ind2], y_train[:])
+                    print(a, b)
+                    print("  AUC на обучающей =", auc_train)
+                    # считаем AUC на тестовой выборке
+                    y_pred = np.zeros_like(y_test, dtype=int)
+                    for i in range(x_test.shape[0]):
+                        if x_test[i, ind1] >= a and x_test[i, ind2] >= b:
+                            y_pred[i] = 1
+                    auc_test = sklearn_metrics.roc_auc_score(y_test, y_pred)
+                    print("  AUC на тестовой =", auc_test)
+                    params.append({'a': a, 'b': b, 'auc': auc_test})
+                mean_auc = np.mean([p['auc'] for p in params])
+                print("Средний AUC =", mean_auc)
+                # усредняем пороги
+                mean_a = np.mean([p['a'] for p in params])
+                mean_b = np.mean([p['b'] for p in params])
+                # считаем AUC на итоговом тестировании
+                y_pred = np.zeros_like(y_final_test, dtype=int)
+                for i in range(x_final_test.shape[0]):
+                    if x_final_test[i, ind1] >= mean_a and x_final_test[i, ind2] >= mean_b:
+                        y_pred[i] = 1
+                auc_final_test = sklearn_metrics.roc_auc_score(y_final_test, y_pred)
+                print("AUC на итоговом тестировании =", auc_final_test)
+                # сохраняем все параметры для данной пары предикторов
+                self.thresholds.append({'a': mean_a, 'b': mean_b,
+                                        'auc_train': mean_auc, 'auc_test': auc_final_test})
+                # вычисляем дихотомизированный признак для данной пары предикторов
+                row = np.zeros(data_size, dtype=int)
+                for i in range(data_size):
+                    if x[i, ind1] >= mean_a and x[i, ind2] >= mean_b:
+                        row[i] = 1
+                if z is None:
+                    z = row
+                else:
+                    z = np.vstack((z, row))
+        z = z.T
+        print(z)
+        print(self.thresholds)
+
+        # Отбор признаков методом включения
+        # сначала выбираем один признак с наибольшим AUC
+        max_auc = 0.0
+        best_feature = None
+        num_pair_features = z.shape[1]
+        for feature in range(num_pair_features):
+            print("Признак", feature + 1)
+            model = LogisticRegression(solver='lbfgs', max_iter=10000)
+            model.fit(z[:, feature].reshape(-1, 1), y)
+            p = model.predict_proba(z[:, feature].reshape(-1, 1))[:, 1]
+            auc = sklearn_metrics.roc_auc_score(y, p)
+            if auc > max_auc:
+                max_auc = auc
+                best_feature = feature
+        #print(best_feature, max_auc)
+
+        features_used = [best_feature]
+
+        # затем добавляем каждый раз тот признак, который дает наибольший прирост AUC
+        for feature_cnt in range(1, self.num_combined_features):
+            max_auc = 0.0
+            best_feature = None
+            for feature in range(num_pair_features):
+                if feature not in features_used:
+                    features_used.append(feature)
+                    model = LogisticRegression(solver='lbfgs', max_iter=10000)
+                    model.fit(z[:, features_used], y)
+                    p = model.predict_proba(z[:, features_used])[:, 1]
+                    auc = sklearn_metrics.roc_auc_score(y, p)
+                    if auc > max_auc:
+                        max_auc = auc
+                        best_feature = feature
+                    features_used.pop()
+            features_used.append(best_feature)
+            print("AUC =", max_auc)
+
+        model = LogisticRegression(solver='lbfgs', max_iter=10000)
+        model.fit(z[:, features_used], y)
+        self.model = model
+        self.features_used = features_used
+
+
     def predict_proba(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
         z = None
@@ -209,7 +307,8 @@ for it in range(1, 1 + num_splits):
         train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
 
     max_auc_rect_model = MaxAUCRectModel(num_combined_features)
-    max_auc_rect_model.fit(x_train, y_train)
+    #max_auc_rect_model.fit(x_train, y_train)
+    max_auc_rect_model.fit_cross_val(x_train, y_train, x_test, y_test)
 
     print("Обучена модель")
     data_size, num_features = data.x.shape[0], data.x.shape[1]
@@ -232,7 +331,9 @@ for it in range(1, 1 + num_splits):
                 s2 = '≤' if feature2 in data.inverted_predictors else '≥'
                 print('  ', feature1, " ", s1, val_a, sep='')
                 print('  ', feature2, " ", s2, val_b, sep='')
-                print("  AUC =", max_auc_rect_model.thresholds[k]['auc'])
+                #print("  AUC =", max_auc_rect_model.thresholds[k]['auc'])
+                print("  AUC (обучающая) =", max_auc_rect_model.thresholds[k]['auc_train'])
+                print("  AUC (тестовая) =", max_auc_rect_model.thresholds[k]['auc_test'])
                 plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], a, b)
             k += 1
 

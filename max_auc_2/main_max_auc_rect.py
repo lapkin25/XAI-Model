@@ -293,7 +293,7 @@ plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], da
 threshold = 0.03  #0.04
 num_combined_features = 12  #10
 
-num_splits = 1  #50
+num_splits = 50
 random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
@@ -304,7 +304,7 @@ for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
 
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=random_state)  # закомментировать random_state
 
     max_auc_rect_model = MaxAUCRectModel(num_combined_features)
     #max_auc_rect_model.fit(x_train, y_train)
@@ -334,7 +334,7 @@ for it in range(1, 1 + num_splits):
                 #print("  AUC =", max_auc_rect_model.thresholds[k]['auc'])
                 print("  AUC (обучающая) =", max_auc_rect_model.thresholds[k]['auc_train'])
                 print("  AUC (тестовая) =", max_auc_rect_model.thresholds[k]['auc_test'])
-                plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], a, b)
+                #plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], a, b)
             k += 1
 
 

@@ -301,6 +301,47 @@ class MaxAUC2Model:
         print(z)
         print(self.thresholds)
 
+        # Отбор признаков методом включения
+        # сначала выбираем один признак с наибольшим AUC
+        max_auc = 0.0
+        best_feature = None
+        num_pair_features = z.shape[1]
+        for feature in range(num_pair_features):
+            print("Признак", feature + 1)
+            model = LogisticRegression(solver='lbfgs', max_iter=10000)
+            model.fit(z[:, feature].reshape(-1, 1), y)
+            p = model.predict_proba(z[:, feature].reshape(-1, 1))[:, 1]
+            auc = sklearn_metrics.roc_auc_score(y, p)
+            if auc > max_auc:
+                max_auc = auc
+                best_feature = feature
+        #print(best_feature, max_auc)
+
+        features_used = [best_feature]
+
+        # затем добавляем каждый раз тот признак, который дает наибольший прирост AUC
+        for feature_cnt in range(1, self.num_combined_features):
+            max_auc = 0.0
+            best_feature = None
+            for feature in range(num_pair_features):
+                if feature not in features_used:
+                    features_used.append(feature)
+                    model = LogisticRegression(solver='lbfgs', max_iter=10000)
+                    model.fit(z[:, features_used], y)
+                    p = model.predict_proba(z[:, features_used])[:, 1]
+                    auc = sklearn_metrics.roc_auc_score(y, p)
+                    if auc > max_auc:
+                        max_auc = auc
+                        best_feature = feature
+                    features_used.pop()
+            features_used.append(best_feature)
+            print("AUC =", max_auc)
+
+        model = LogisticRegression(solver='lbfgs', max_iter=10000)
+        model.fit(z[:, features_used], y)
+        self.model = model
+        self.features_used = features_used
+
 
     def predict_proba(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -381,8 +422,12 @@ for it in range(1, 1 + num_splits):
                 py = max_auc_2_model.thresholds[k]['py']
                 nx = max_auc_2_model.thresholds[k]['nx']
                 ny = max_auc_2_model.thresholds[k]['ny']
-                print("  Прямая", -nx / ny, "* x +", py + nx / ny * px)
-                print("  AUC =", max_auc_2_model.thresholds[k]['auc'])
+                #print("  Прямая", -nx / ny, "* x +", py + nx / ny * px)
+                print(predictors[ind2], end='')
+                print(' ≥ ' if ny >= 0 else ' ≤ ', end='')
+                print(-nx / ny, '*', predictors[ind1], '+', py + nx / ny * px)
+                print("  AUC (обучающая) =", max_auc_2_model.thresholds[k]['auc_train'])
+                print("  AUC (тестовая) =", max_auc_2_model.thresholds[k]['auc_test'])
                 #plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], px, py, nx, ny)
             k += 1
 

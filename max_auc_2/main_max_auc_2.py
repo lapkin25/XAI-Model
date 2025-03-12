@@ -244,6 +244,8 @@ class MaxAUC2Model:
         skf = StratifiedKFold(n_splits=5)
         #split = skf.split(x, y)
         # Находим для каждой пары признаков средний порог и средний AUC
+        z = None
+        self.thresholds = []
         for ind1 in range(num_features):
             for ind2 in range(ind1 + 1, num_features):
                 print("ind = ", ind1, "," , ind2)
@@ -284,7 +286,20 @@ class MaxAUC2Model:
                 auc_final_test = sklearn_metrics.roc_auc_score(y_final_test, y_pred)
                 print("AUC на итоговом тестировании =", auc_final_test)
                 # сохраняем все параметры для данной пары предикторов
-                # ...
+                self.thresholds.append({'px': mean_px, 'py': mean_py, 'nx': mean_nx, 'ny': mean_ny,
+                                        'auc_train': mean_auc, 'auc_test': auc_final_test})
+                # вычисляем дихотомизированный признак для данной пары предикторов
+                row = np.zeros(data_size, dtype=int)
+                for i in range(data_size):
+                    if mean_nx * (x[i, ind1] - mean_px) + mean_ny * (x[i, ind2] - mean_py) >= 0:
+                        row[i] = 1
+                if z is None:
+                    z = row
+                else:
+                    z = np.vstack((z, row))
+        z = z.T
+        print(z)
+        print(self.thresholds)
 
 
     def predict_proba(self, x):

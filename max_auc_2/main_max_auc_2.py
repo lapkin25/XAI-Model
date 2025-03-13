@@ -308,7 +308,7 @@ class MaxAUC2Model:
         num_pair_features = z.shape[1]
         for feature in range(num_pair_features):
             print("Признак", feature + 1)
-            model = LogisticRegression(solver='lbfgs', max_iter=10000)
+            model = LogisticRegression(penalty='l1', solver='liblinear', max_iter=10000)
             model.fit(z[:, feature].reshape(-1, 1), y)
             p = model.predict_proba(z[:, feature].reshape(-1, 1))[:, 1]
             auc = sklearn_metrics.roc_auc_score(y, p)
@@ -326,7 +326,7 @@ class MaxAUC2Model:
             for feature in range(num_pair_features):
                 if feature not in features_used:
                     features_used.append(feature)
-                    model = LogisticRegression(solver='lbfgs', max_iter=10000)
+                    model = LogisticRegression(penalty='l1', solver='liblinear', max_iter=10000)
                     model.fit(z[:, features_used], y)
                     p = model.predict_proba(z[:, features_used])[:, 1]
                     auc = sklearn_metrics.roc_auc_score(y, p)
@@ -337,7 +337,7 @@ class MaxAUC2Model:
             features_used.append(best_feature)
             print("AUC =", max_auc)
 
-        model = LogisticRegression(solver='lbfgs', max_iter=10000)
+        model = LogisticRegression(penalty='l1', solver='liblinear', max_iter=10000)
         model.fit(z[:, features_used], y)
         self.model = model
         self.features_used = features_used

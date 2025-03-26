@@ -10,6 +10,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn import metrics as sklearn_metrics
 import csv
 from sklearn.model_selection import StratifiedKFold
+import statsmodels.api as sm
 
 
 # Функция возвращает:
@@ -363,6 +364,12 @@ class MaxAUC2Model:
         model.fit(z[:, features_used], y)
         self.model = model
         self.features_used = features_used
+
+        z1 = z[:, features_used]
+        z1 = sm.add_constant(z1)
+        sm_model = sm.Logit(y, z1)
+        result = sm_model.fit_regularized()
+        print(result.summary())
 
 
     def predict_proba(self, x):

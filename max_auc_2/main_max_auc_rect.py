@@ -65,7 +65,7 @@ def find_threshold_rect(x_, y_, labels_):
     return a, b, max_auc
 
 
-def plot_2d(x1, x1_name, x2, x2_name, y, a, b):
+def plot_2d(x1, x1_name, x1_plot_name, x2, x2_name, x2_plot_name, y, a, b, file_name=None):
     min_x1 = np.min(x1)
     min_x2 = np.min(x2)
     max_x1 = np.max(x1)
@@ -80,8 +80,10 @@ def plot_2d(x1, x1_name, x2, x2_name, y, a, b):
     plt.scatter(val_x1[y == 1], val_x2[y == 1], c='red', linewidths=1)
     plt.axline((val_a, val_b), (val_a, max(val_x2)), c='green')
     plt.axline((val_a, val_b), (max(val_x1), val_b), c='green')
-    plt.xlabel(x1_name)
-    plt.ylabel(x2_name)
+    plt.xlabel(x1_plot_name)
+    plt.ylabel(x2_plot_name)
+    if file_name is not None:
+        plt.savefig(file_name, dpi=300)
     plt.show()
 
 
@@ -277,6 +279,8 @@ class MaxAUCRectModel:
 
 data = Data("DataSet.xlsx")
 predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
+predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
@@ -293,7 +297,7 @@ plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], da
 threshold = 0.03  #0.04
 num_combined_features = 12  #10
 
-num_splits = 50
+num_splits = 1
 random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
@@ -304,7 +308,7 @@ for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
 
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=random_state)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
 
     max_auc_rect_model = MaxAUCRectModel(num_combined_features)
     #max_auc_rect_model.fit(x_train, y_train)
@@ -334,7 +338,12 @@ for it in range(1, 1 + num_splits):
                 #print("  AUC =", max_auc_rect_model.thresholds[k]['auc'])
                 print("  AUC (обучающая) =", max_auc_rect_model.thresholds[k]['auc_train'])
                 print("  AUC (тестовая) =", max_auc_rect_model.thresholds[k]['auc_test'])
-                #plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], a, b)
+                plot_2d(data.x[:, ind1], predictors[ind1], predictors_eng[ind1],
+                        data.x[:, ind2], predictors[ind2], predictors_eng[ind2], data.y[:], a, b,
+                        file_name="fig_rect/" + predictors[ind1] + "_" + predictors[ind2] + ".png")
+                plot_2d(data.x[:, ind1], predictors[ind1], predictors_rus[ind1],
+                        data.x[:, ind2], predictors[ind2], predictors_rus[ind2], data.y[:], a, b,
+                        file_name="fig_rect/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png")
             k += 1
 
 

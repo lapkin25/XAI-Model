@@ -149,22 +149,44 @@ def find_threshold_2d(x1, x2, y):
     return Px, Py, Nx / math.sqrt(Nx ** 2 + Ny ** 2), Ny / math.sqrt(Nx ** 2 + Ny ** 2), max_auc
 
 
-def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2):
+def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None):
     min_x1 = np.min(x1)
     min_x2 = np.min(x2)
     max_x1 = np.max(x1)
     max_x2 = np.max(x2)
+
     # находим точки A, B, принадлежащие прямой
     Ax = min_x1
     Ay = ((n1 * p1 + n2 * p2) - n1 * min_x1) / n2
+    recalc_Ax = False
+    if Ay < min_x2:
+        Ay = min_x2
+        recalc_Ax = True
+    elif Ay > max_x2:
+        Ay = max_x2
+        recalc_Ax = True
+    if recalc_Ax:
+        Ax = ((n1 * p1 + n2 * p2) - n2 * Ay) / n1
+
     Bx = max_x1
     By = ((n1 * p1 + n2 * p2) - n1 * max_x1) / n2
+    recalc_Bx = False
+    if By < min_x2:
+        By = min_x2
+        recalc_Bx = True
+    elif By > max_x2:
+        By = max_x2
+        recalc_Bx = True
+    if recalc_Bx:
+        Bx = ((n1 * p1 + n2 * p2) - n2 * By) / n1
 
     plt.scatter(x1[y == 0], x2[y == 0], c='blue', linewidths=1)
     plt.scatter(x1[y == 1], x2[y == 1], c='red', linewidths=1)
     plt.axline((Ax, Ay), (Bx, By), c='green')
     plt.xlabel(x1_name)
     plt.ylabel(x2_name)
+    if file_name is not None:
+        plt.savefig(file_name, dpi=300)
     plt.show()
 
 
@@ -370,6 +392,8 @@ class MaxAUC2Model:
 
 data = Data("DataSet.xlsx")
 predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
+predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
 data.prepare(predictors, "Dead", [], scale_data=False)  # не инвертируем предикторы
 
 #ind1 = 0
@@ -390,7 +414,7 @@ print(px, py, nx, ny)
 threshold = 0.03  #0.04
 num_combined_features = 12  #10
 
-num_splits = 50
+num_splits = 1
 random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
@@ -401,7 +425,7 @@ for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
 
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=random_state)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
 
     max_auc_2_model = MaxAUC2Model(num_combined_features)
     #max_auc_2_model.fit(x_train, y_train)
@@ -428,7 +452,10 @@ for it in range(1, 1 + num_splits):
                 print(-nx / ny, '*', predictors[ind1], '+', py + nx / ny * px)
                 print("  AUC (обучающая) =", max_auc_2_model.thresholds[k]['auc_train'])
                 print("  AUC (тестовая) =", max_auc_2_model.thresholds[k]['auc_test'])
-                #plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], px, py, nx, ny)
+                plot_2d(data.x[:, ind1], predictors_eng[ind1], data.x[:, ind2], predictors_eng[ind2], data.y[:], px, py, nx, ny,
+                        file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + ".png")
+                plot_2d(data.x[:, ind1], predictors_rus[ind1], data.x[:, ind2], predictors_rus[ind2], data.y[:], px, py, nx, ny,
+                        file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png")
             k += 1
 
 

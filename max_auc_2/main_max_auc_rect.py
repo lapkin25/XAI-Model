@@ -10,6 +10,7 @@ from sortedcontainers import SortedList
 import matplotlib.pyplot as plt
 import csv
 from sklearn.model_selection import StratifiedKFold
+import statsmodels.api as sm
 
 
 def find_predictors_to_invert(data, predictors):
@@ -160,7 +161,8 @@ class MaxAUCRectModel:
 
     def fit_cross_val(self, x, y, x_final_test, y_final_test):
         data_size, num_features = x.shape[0], x.shape[1]
-        skf = StratifiedKFold(n_splits=5)
+        NSPLITS = 5
+        skf = StratifiedKFold(n_splits=NSPLITS)
         # Находим для каждой пары признаков средний порог и средний AUC
         z = None
         self.thresholds = []
@@ -185,6 +187,7 @@ class MaxAUCRectModel:
                     print("  AUC на тестовой =", auc_test)
                     params.append({'a': a, 'b': b, 'auc': auc_test})
                 mean_auc = np.mean([p['auc'] for p in params])
+                std_auc = np.std([p['auc'] for p in params], ddof=1)
                 print("Средний AUC =", mean_auc)
                 # усредняем пороги
                 mean_a = np.mean([p['a'] for p in params])
@@ -196,9 +199,21 @@ class MaxAUCRectModel:
                         y_pred[i] = 1
                 auc_final_test = sklearn_metrics.roc_auc_score(y_final_test, y_pred)
                 print("AUC на итоговом тестировании =", auc_final_test)
+                # оцениваем доверительный интервал для AUC на итоговом тестировании
+                ntest = len(y_final_test)  # сколько раз разыгрываем случайный выбор
+                mtest = 9 * (ntest // 10)  # сколько выбираем наблюдений
+                auc_instances = []
+                for _ in range(ntest):
+                    indices = np.random.choice(len(y_final_test), mtest, replace=False)
+                    auc_val = sklearn_metrics.roc_auc_score(y_final_test[indices], y_pred[indices])
+                    auc_instances.append(auc_val)
+                mean_auc_test = np.mean(auc_instances)
+                std_auc_test = np.std(auc_instances, ddof=1)
                 # сохраняем все параметры для данной пары предикторов
                 self.thresholds.append({'a': mean_a, 'b': mean_b,
-                                        'auc_train': mean_auc, 'auc_test': auc_final_test})
+                                        'auc_train': mean_auc, 'auc_test': auc_final_test,
+                                        'std_auc_train': std_auc, 'nsplits': NSPLITS,
+                                        'ntest': ntest, 'mean_auc_test': mean_auc_test, 'std_auc_test': std_auc_test})
                 # вычисляем дихотомизированный признак для данной пары предикторов
                 row = np.zeros(data_size, dtype=int)
                 for i in range(data_size):
@@ -252,6 +267,12 @@ class MaxAUCRectModel:
         model.fit(z[:, features_used], y)
         self.model = model
         self.features_used = features_used
+
+        z1 = z[:, features_used]
+        z1 = sm.add_constant(z1)
+        sm_model = sm.Logit(y, z1)
+        result = sm_model.fit_regularized()
+        print(result.summary())
 
 
     def predict_proba(self, x):
@@ -337,7 +358,21 @@ for it in range(1, 1 + num_splits):
                 print('  ', feature2, " ", s2, val_b, sep='')
                 #print("  AUC =", max_auc_rect_model.thresholds[k]['auc'])
                 print("  AUC (обучающая) =", max_auc_rect_model.thresholds[k]['auc_train'])
+                print("  Оценка: ", "[",
+                      max_auc_rect_model.thresholds[k]['auc_train']
+                      - 1.96 * max_auc_rect_model.thresholds[k]['std_auc_train'] / np.sqrt(max_auc_rect_model.thresholds[k]['nsplits']),
+                      ",",
+                      max_auc_rect_model.thresholds[k]['auc_train']
+                      + 1.96 * max_auc_rect_model.thresholds[k]['std_auc_train'] / np.sqrt(max_auc_rect_model.thresholds[k]['nsplits']),
+                      "]")
                 print("  AUC (тестовая) =", max_auc_rect_model.thresholds[k]['auc_test'])
+                print("  Оценка: ", max_auc_rect_model.thresholds[k]['mean_auc_test'], "[",
+                      max_auc_rect_model.thresholds[k]['mean_auc_test']
+                      - 1.96 * max_auc_rect_model.thresholds[k]['std_auc_test'] / np.sqrt(max_auc_rect_model.thresholds[k]['ntest']),
+                      ",",
+                      max_auc_rect_model.thresholds[k]['mean_auc_test']
+                      + 1.96 * max_auc_rect_model.thresholds[k]['std_auc_test'] / np.sqrt(max_auc_rect_model.thresholds[k]['ntest']),
+                      "]")
                 plot_2d(data.x[:, ind1], predictors[ind1], predictors_eng[ind1],
                         data.x[:, ind2], predictors[ind2], predictors_eng[ind2], data.y[:], a, b,
                         file_name="fig_rect/" + predictors[ind1] + "_" + predictors[ind2] + ".png")

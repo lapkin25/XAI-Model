@@ -264,7 +264,8 @@ class MaxAUC2Model:
 
     def fit_cross_val(self, x, y, x_final_test, y_final_test):
         data_size, num_features = x.shape[0], x.shape[1]
-        skf = StratifiedKFold(n_splits=5)
+        NSPLITS = 5
+        skf = StratifiedKFold(n_splits=NSPLITS)
         #split = skf.split(x, y)
         # Находим для каждой пары признаков средний порог и средний AUC
         z = None
@@ -290,6 +291,7 @@ class MaxAUC2Model:
                     print("  AUC на тестовой =", auc_test)
                     params.append({'px': px, 'py': py, 'nx': nx, 'ny': ny, 'auc': auc_test})
                 mean_auc = np.mean([p['auc'] for p in params])
+                std_auc = np.std([p['auc'] for p in params], ddof=1)
                 print("Средний AUC =", mean_auc)
                 # усредняем коэффициенты в уравнении прямой
                 mean_nx = np.mean([p['nx'] for p in params])
@@ -308,9 +310,21 @@ class MaxAUC2Model:
                         y_pred[i] = 1
                 auc_final_test = sklearn_metrics.roc_auc_score(y_final_test, y_pred)
                 print("AUC на итоговом тестировании =", auc_final_test)
+                # оцениваем доверительный интервал для AUC на итоговом тестировании
+                ntest = len(y_final_test)  # сколько раз разыгрываем случайный выбор
+                mtest = 9 * (ntest // 10)  # сколько выбираем наблюдений
+                auc_instances = []
+                for _ in range(ntest):
+                    indices = np.random.choice(len(y_final_test), mtest, replace=False)
+                    auc_val = sklearn_metrics.roc_auc_score(y_final_test[indices], y_pred[indices])
+                    auc_instances.append(auc_val)
+                mean_auc_test = np.mean(auc_instances)
+                std_auc_test = np.std(auc_instances, ddof=1)
                 # сохраняем все параметры для данной пары предикторов
                 self.thresholds.append({'px': mean_px, 'py': mean_py, 'nx': mean_nx, 'ny': mean_ny,
-                                        'auc_train': mean_auc, 'auc_test': auc_final_test})
+                                        'auc_train': mean_auc, 'auc_test': auc_final_test,
+                                        'std_auc_train': std_auc, 'nsplits': NSPLITS,
+                                        'ntest': ntest, 'mean_auc_test': mean_auc_test, 'std_auc_test': std_auc_test})
                 # вычисляем дихотомизированный признак для данной пары предикторов
                 row = np.zeros(data_size, dtype=int)
                 for i in range(data_size):
@@ -458,7 +472,21 @@ for it in range(1, 1 + num_splits):
                 print(' ≥ ' if ny >= 0 else ' ≤ ', end='')
                 print(-nx / ny, '*', predictors[ind1], '+', py + nx / ny * px)
                 print("  AUC (обучающая) =", max_auc_2_model.thresholds[k]['auc_train'])
+                print("  Оценка: ", "[",
+                      max_auc_2_model.thresholds[k]['auc_train']
+                      - 1.96 * max_auc_2_model.thresholds[k]['std_auc_train'] / np.sqrt(max_auc_2_model.thresholds[k]['nsplits']),
+                      ",",
+                      max_auc_2_model.thresholds[k]['auc_train']
+                      + 1.96 * max_auc_2_model.thresholds[k]['std_auc_train'] / np.sqrt(max_auc_2_model.thresholds[k]['nsplits']),
+                      "]")
                 print("  AUC (тестовая) =", max_auc_2_model.thresholds[k]['auc_test'])
+                print("  Оценка: ", max_auc_2_model.thresholds[k]['mean_auc_test'], "[",
+                      max_auc_2_model.thresholds[k]['mean_auc_test']
+                      - 1.96 * max_auc_2_model.thresholds[k]['std_auc_test'] / np.sqrt(max_auc_2_model.thresholds[k]['ntest']),
+                      ",",
+                      max_auc_2_model.thresholds[k]['mean_auc_test']
+                      + 1.96 * max_auc_2_model.thresholds[k]['std_auc_test'] / np.sqrt(max_auc_2_model.thresholds[k]['ntest']),
+                      "]")
                 plot_2d(data.x[:, ind1], predictors_eng[ind1], data.x[:, ind2], predictors_eng[ind2], data.y[:], px, py, nx, ny,
                         file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + ".png")
                 plot_2d(data.x[:, ind1], predictors_rus[ind1], data.x[:, ind2], predictors_rus[ind2], data.y[:], px, py, nx, ny,

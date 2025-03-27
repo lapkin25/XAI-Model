@@ -176,6 +176,9 @@ class MaxAUCRectModel:
                     print("  Fold", fold)
                     # находим пороги на обучающей выборке
                     a, b, auc_train = find_threshold_rect(x_train[:, ind1], x_train[:, ind2], y_train[:])
+                    # учитываем минимально допустимые пороги
+                    a = max(a, min_thresholds[ind1])
+                    b = max(b, min_thresholds[ind2])
                     print(a, b)
                     print("  AUC на обучающей =", auc_train)
                     # считаем AUC на тестовой выборке
@@ -304,6 +307,17 @@ predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV,
 predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
+
+normal_thresholds = [0, 80, 3, 115, 100, 100, 100, 0.35, 5.6, 115]
+min_thresholds = []
+for i, nt in enumerate(normal_thresholds):
+    val_normal = nt
+    if predictors[i] in invert_predictors:
+        val_normal = -val_normal
+    val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
+    min_thresholds.append(val)
+# min_thresholds -- минимально допустимый порог (в преобразованных координатах)
+
 
 """
 ind1 = 0

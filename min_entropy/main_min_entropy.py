@@ -16,7 +16,7 @@ class MinEntropy:
     def __init__(self):
         self.cutoffs = None  # первичные пороги
         self.combined_features = None  # список троек (k, j, xj_cutoff) - вторичный порог
-        self.logistic_model = None
+        #self.logistic_model = None
         #self.combined_weights = None
         #self.intercept = None
 
@@ -93,6 +93,7 @@ class MinEntropy:
 
                 self.combined_features.append((k, j, optimal_cutoff))
 
+        """
         # формируем бинарные признаки
         z = None
         for k, j, xj_cutoff in self.combined_features:
@@ -108,11 +109,21 @@ class MinEntropy:
 
         # обучаем логистическую регрессию
         model = LogisticRegression(penalty='l1', solver='liblinear', max_iter=10000)
+        #model = LogisticRegression(max_iter=10000)
         model.fit(z, y)
         self.logistic_model = model
+        """
 
     def predict_proba(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
+        probs = np.zeros(data_size)
+        for i in range(data_size):
+            for k, j, xj_cutoff in self.combined_features:
+                # если правило сработало
+                if x[i, k] >= self.cutoffs[k] and x[i, j] >= xj_cutoff:
+                    probs[i] = 1
+        return np.c_[1 - probs, probs]
+        """
         z = None
         for k, j, xj_cutoff in self.combined_features:
             row = np.zeros(data_size, dtype=int)
@@ -125,6 +136,7 @@ class MinEntropy:
                 z = np.vstack((z, row))
         z = z.T
         return self.logistic_model.predict_proba(z)
+        """
 
 
 def find_predictors_to_invert(data, predictors):

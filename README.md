@@ -36,3 +36,10 @@ Border area method is proposed here to create new binary features which are dete
 The border area method can be considered as interpretable.
 When a selected feature is considered, its border area contains the points for which
 this feature is crucial.
+
+## Updates
+
+Cut-off thresholds are found with:
+
+- min_entropy: Minimization of Kullback-Leibler divergence
+- max_auc_2: Maximization of AUC for feature pairs

@@ -76,10 +76,22 @@ def find_threshold_2d_slow(x1, x2, y):
 # Функция возвращает:
 #  px, py - координаты точки, через которую пройдет прямая
 #  nx, ny - вектор нормали к прямой (смотрит в сторону класса "1")
-def find_threshold_2d(x1, x2, y):
+def find_threshold_2d(x1, x2, y, use_centroids=False):
     data_size = y.shape[0]
     N1 = np.sum(y)  # число "1"
     N0 = data_size - N1  # число "0"
+    
+    if use_centroids:
+        c1x1 = np.mean(x1[y == 1])
+        c1x2 = np.mean(x2[y == 1])
+        c0x1 = np.mean(x1[y == 0])
+        c0x2 = np.mean(x2[y == 0])
+        px1 = (c1x1 + c0x1) / 2
+        px2 = (c1x2 + c0x2) / 2
+        nx1 = (c1x1 - c0x1) / 2
+        nx2 = (c1x2 - c0x2) / 2
+        return px1, px2, nx1, nx2, None
+
     # координаты наилучшей прямой
     Px = None
     Py = None
@@ -262,7 +274,7 @@ class MaxAUC2Model:
         self.features_used = features_used
 
 
-    def fit_cross_val(self, x, y, x_final_test, y_final_test):
+    def fit_cross_val(self, x, y, x_final_test, y_final_test, use_centroids=False):
         data_size, num_features = x.shape[0], x.shape[1]
         NSPLITS = 5
         skf = StratifiedKFold(n_splits=NSPLITS)
@@ -279,7 +291,7 @@ class MaxAUC2Model:
                     y_train, y_test = y[train_index], y[test_index]
                     print("  Fold", fold)
                     # находим пороги на обучающей выборке
-                    px, py, nx, ny, auc_train = find_threshold_2d(x_train[:, ind1], x_train[:, ind2], y_train[:])
+                    px, py, nx, ny, auc_train = find_threshold_2d(x_train[:, ind1], x_train[:, ind2], y_train[:], use_centroids)
                     print(px, py, nx, ny)
                     print("  AUC на обучающей =", auc_train)
                     # считаем AUC на тестовой выборке
@@ -450,7 +462,7 @@ for it in range(1, 1 + num_splits):
 
     max_auc_2_model = MaxAUC2Model(num_combined_features)
     #max_auc_2_model.fit(x_train, y_train)
-    max_auc_2_model.fit_cross_val(x_train, y_train, x_test, y_test)
+    max_auc_2_model.fit_cross_val(x_train, y_train, x_test, y_test)  #, use_centroids=True)
 
     print("Обучена модель")
     data_size, num_features = data.x.shape[0], data.x.shape[1]
@@ -506,3 +518,4 @@ for it in range(1, 1 + num_splits):
     print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)
 
     csvwriter.writerow(map(str, [auc, sensitivity, specificity]))
+    

@@ -308,7 +308,7 @@ predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Клас�
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
-normal_thresholds = [0, 80, 3, 115, 100, 100, 100, 0.35, 5.6, 115]
+normal_thresholds = [0, 80, 3, 115, 50, 100, 100, 0.35, 5.6, 115]
 min_thresholds = []
 for i, nt in enumerate(normal_thresholds):
     val_normal = nt

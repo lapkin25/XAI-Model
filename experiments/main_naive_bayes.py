@@ -210,7 +210,7 @@ class NaiveBayes:
         model.fit(z, y)
         self.triples_logistic_model = model
 
-    def predict_proba_with_triples(self, x, y):
+    def predict_proba_with_triples(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
         num_triples = len(self.triples)
         z = np.zeros((data_size, num_triples), dtype=int)
@@ -220,7 +220,7 @@ class NaiveBayes:
                 z[i, j] = (x[i, ind1] >= self.cutoffs[ind1]) \
                     and (x[i, ind2] >= self.cutoffs[ind2]) \
                     and (x[i, ind3] >= self.cutoffs[ind3])
-        return self.triples_logistic_model.predict_proba(z, y)
+        return self.triples_logistic_model.predict_proba(z)
 
 
 def find_predictors_to_invert(data, predictors):
@@ -290,7 +290,7 @@ for it in range(1, 1 + num_splits):
     model1.fit_with_triples(x_train, y_train)
     for i, t in enumerate(model1.triples):
         print(predictors[t[0]], '&', predictors[t[1]], '&', predictors[t[2]], '-> w =', model1.triples_logistic_model.coef_[0][i])
-    p = model1.predict_proba_with_triples(x_test, y_test)
+    p = model1.predict_proba_with_triples(x_test)
     auc = sklearn_metrics.roc_auc_score(y_test, p)
     print("AUC:", auc)
     # выводим качество модели

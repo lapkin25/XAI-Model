@@ -17,6 +17,7 @@ from sklearn.naive_bayes import BernoulliNB
 class NaiveBayes:
     def __init__(self):
         self.cutoffs = None  # пороги для каждого предиктора
+        self.clf = None
 
     # находит оптимальные пороги
     def fit(self, x, y, use_genetic=True):
@@ -90,14 +91,30 @@ class NaiveBayes:
 
         if use_genetic:
             varbound = np.array([[lb[j], ub[j]] for j in range(num_features)])
-            print(varbound)
+            #print(varbound)
+
+            algorithm_param = {'max_num_iteration': 1000, \
+                               'population_size': 100, \
+                               'mutation_probability': 0.1, \
+                               'elit_ratio': 0.01, \
+                               'crossover_probability': 0.5, \
+                               'parents_portion': 0.3, \
+                               'crossover_type': 'uniform', \
+                               'max_iteration_without_improv': None}
 
             def f(c):
                 return -calc_J(c)
 
-            model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound)
-            result = model.run()
-            self.cutoffs = result['variable']
+            model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound, algorithm_parameters=algorithm_param)
+            model.run()
+            self.cutoffs = model.output_dict['variable']
+            #self.cutoffs = np.array([0.72358296, 2.20297099, 1.20732979, 0.71223686, 0.9679637, 0.55899361, 0.30359288, 5.04075139, 0.70719669, 1.0690253]) # result['variable']
+            z = np.zeros((data_size, num_features), dtype=int)
+            for j in range(num_features):
+                z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
+            clf = BernoulliNB()
+            clf.fit(z, y)
+            self.clf = clf
         else:
             samples = lb + (ub - lb) * lhs(num_features, num_samples)
 
@@ -115,7 +132,20 @@ class NaiveBayes:
 
     def predict(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
-        # TODO: реализовать
+        z = np.zeros((data_size, num_features), dtype=int)
+        for j in range(num_features):
+            z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
+        y_pred = self.clf.predict(z)
+        return y_pred
+
+    def predict_proba(self, x):
+        yp = self.predict(x)
+        return np.c_[1 - yp, yp]
+
+    # выделить решающие правила
+    def interpret(self):
+        pass
+
 
 def find_predictors_to_invert(data, predictors):
     # обучаем логистическую регрессию с выделенными признаками,

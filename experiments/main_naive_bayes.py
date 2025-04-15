@@ -115,9 +115,9 @@ class NaiveBayes:
                 return -calc_J(c)
 
             model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound, algorithm_parameters=algorithm_param)
-            #model.run()
-            #self.cutoffs = model.output_dict['variable']
-            self.cutoffs = np.array([0.72358296, 2.20297099, 1.20732979, 0.71223686, 0.9679637, 0.55899361, 0.30359288, 5.04075139, 0.70719669, 1.0690253]) # result['variable']
+            model.run()
+            self.cutoffs = model.output_dict['variable']
+            #self.cutoffs = np.array([0.72358296, 2.20297099, 1.20732979, 0.71223686, 0.9679637, 0.55899361, 0.30359288, 5.04075139, 0.70719669, 1.0690253]) # result['variable']
             z = np.zeros((data_size, num_features), dtype=int)
             for j in range(num_features):
                 z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
@@ -290,7 +290,7 @@ for it in range(1, 1 + num_splits):
     model1.fit_with_triples(x_train, y_train)
     for i, t in enumerate(model1.triples):
         print(predictors[t[0]], '&', predictors[t[1]], '&', predictors[t[2]], '-> w =', model1.triples_logistic_model.coef_[0][i])
-    p = model1.predict_proba_with_triples(x_test)
+    p = model1.predict_proba_with_triples(x_test)[:, 1]
     auc = sklearn_metrics.roc_auc_score(y_test, p)
     print("AUC:", auc)
     # выводим качество модели

@@ -109,7 +109,8 @@ class NaiveBayes:
                                'crossover_probability': 0.5, \
                                'parents_portion': 0.3, \
                                'crossover_type': 'uniform', \
-                               'max_iteration_without_improv': None}
+                               'max_iteration_without_improv': None, \
+                               'convergence_curve': False}
 
             def f(c):
                 return -calc_J(c)
@@ -192,7 +193,7 @@ class NaiveBayes:
 
         self.triples = []
         for t in triples:
-            if t[1] > 20:
+            if t[1] >= 20:
                 self.triples.append(list(map(lambda a: predictors1.index(a), t[0])))
 
 
@@ -268,7 +269,7 @@ data.prepare(predictors, "Dead", invert_predictors)
 
 threshold = 0.03
 
-num_splits = 1
+num_splits = 10
 random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
@@ -279,7 +280,7 @@ csvwriter.writerow(["auc1", "sen1", "spec1", "auc2", "sen2", "spec2"])
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=123)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)   #, random_state=123)  # закомментировать random_state
 
     model1 = NaiveBayes()
     model1.fit(x_train, y_train)

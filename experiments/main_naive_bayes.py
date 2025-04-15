@@ -109,13 +109,12 @@ class NaiveBayes:
                                'crossover_probability': 0.5, \
                                'parents_portion': 0.3, \
                                'crossover_type': 'uniform', \
-                               'max_iteration_without_improv': None, \
-                               'convergence_curve': False}
+                               'max_iteration_without_improv': None}
 
             def f(c):
                 return -calc_J(c)
 
-            model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound, algorithm_parameters=algorithm_param)
+            model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound, algorithm_parameters=algorithm_param, convergence_curve=False)
             model.run()
             self.cutoffs = model.output_dict['variable']
             #self.cutoffs = np.array([0.72358296, 2.20297099, 1.20732979, 0.71223686, 0.9679637, 0.55899361, 0.30359288, 5.04075139, 0.70719669, 1.0690253]) # result['variable']
@@ -191,9 +190,11 @@ class NaiveBayes:
         for t in triples:
             print(t[0], t[1])
 
+        num_triples = 30
+
         self.triples = []
         for t in triples:
-            if t[1] >= 20:
+            if t[1] >= triples[num_triples - 1][1]:
                 self.triples.append(list(map(lambda a: predictors1.index(a), t[0])))
 
 

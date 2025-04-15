@@ -23,12 +23,15 @@ class NaiveBayes:
         self.cutoffs = None  # пороги для каждого предиктора
         self.clf = None
         self.num_features = None
+        self.triples = None
 
     # находит оптимальные пороги
     def fit(self, x, y, use_genetic=True):
         data_size, num_features = x.shape[0], x.shape[1]
         self.num_features = num_features
         self.cutoffs = np.zeros(num_features)
+        self.triples = None
+        self.triples_logistic_model = None
 
         num_samples = 10000
 
@@ -112,9 +115,9 @@ class NaiveBayes:
                 return -calc_J(c)
 
             model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound, algorithm_parameters=algorithm_param)
-            model.run()
-            self.cutoffs = model.output_dict['variable']
-            #self.cutoffs = np.array([0.72358296, 2.20297099, 1.20732979, 0.71223686, 0.9679637, 0.55899361, 0.30359288, 5.04075139, 0.70719669, 1.0690253]) # result['variable']
+            #model.run()
+            #self.cutoffs = model.output_dict['variable']
+            self.cutoffs = np.array([0.72358296, 2.20297099, 1.20732979, 0.71223686, 0.9679637, 0.55899361, 0.30359288, 5.04075139, 0.70719669, 1.0690253]) # result['variable']
             z = np.zeros((data_size, num_features), dtype=int)
             for j in range(num_features):
                 z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
@@ -187,6 +190,38 @@ class NaiveBayes:
         for t in triples:
             print(t[0], t[1])
 
+        self.triples = []
+        for t in triples:
+            if t[1] > 20:
+                self.triples.append(list(map(lambda a: predictors1.index(a), t[0])))
+
+
+    def fit_with_triples(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        num_triples = len(self.triples)
+        z = np.zeros((data_size, num_triples), dtype=int)
+        for i in range(data_size):
+            for j in range(num_triples):
+                ind1, ind2, ind3 = self.triples[j]
+                z[i, j] = (x[i, ind1] >= self.cutoffs[ind1]) \
+                    and (x[i, ind2] >= self.cutoffs[ind2]) \
+                    and (x[i, ind3] >= self.cutoffs[ind3])
+        model = LogisticRegression(penalty='l1', solver='liblinear', max_iter=10000)
+        model.fit(z, y)
+        self.triples_logistic_model = model
+
+    def predict_proba_with_triples(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        num_triples = len(self.triples)
+        z = np.zeros((data_size, num_triples), dtype=int)
+        for i in range(data_size):
+            for j in range(num_triples):
+                ind1, ind2, ind3 = self.triples[j]
+                z[i, j] = (x[i, ind1] >= self.cutoffs[ind1]) \
+                    and (x[i, ind2] >= self.cutoffs[ind2]) \
+                    and (x[i, ind3] >= self.cutoffs[ind3])
+        return self.triples_logistic_model.predict_proba(z, y)
+
 
 def find_predictors_to_invert(data, predictors):
     # обучаем логистическую регрессию с выделенными признаками,
@@ -251,5 +286,22 @@ for it in range(1, 1 + num_splits):
     print_model(model1, data)
     auc1, sen1, spec1 = test_model(model1, x_test, y_test, threshold)
     model1.interpret()
+    #print(model1.triples)
+    model1.fit_with_triples(x_train, y_train)
+    for i, t in enumerate(model1.triples):
+        print(predictors[t[0]], '&', predictors[t[1]], '&', predictors[t[2]], '-> w =', model1.triples_logistic_model.coef_[i])
+    p = model1.predict_proba_with_triples(x_test, y_test)
+    auc = sklearn_metrics.roc_auc_score(y_test, p)
+    print("AUC:", auc)
+    # выводим качество модели
+    y_pred = np.where(p > threshold, 1, 0)
+    tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y_test, y_pred).ravel()
+    specificity = tn / (tn + fp)
+    sensitivity = tp / (tp + fn)
+    print("Sens:", sensitivity, "Spec:", specificity)
+    print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)
+    auc2 = auc
+    sen2 = sensitivity
+    spec2 = specificity
 
-    csvwriter.writerow(map(str, [auc1, sen1, spec1]))
+    csvwriter.writerow(map(str, [auc1, sen1, spec1, auc2, sen2, spec2]))

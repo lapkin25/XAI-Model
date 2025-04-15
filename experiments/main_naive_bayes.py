@@ -12,7 +12,7 @@ import math
 from pyDOE import lhs
 from geneticalgorithm import geneticalgorithm as ga
 #from permetrics.classification import ClassificationMetric
-
+from sklearn.naive_bayes import BernoulliNB
 
 class NaiveBayes:
     def __init__(self):
@@ -30,6 +30,16 @@ class NaiveBayes:
         ub = np.max(x, axis=0)
 
         def calc_J(c):
+            z = np.zeros((data_size, num_features), dtype=int)
+            for j in range(num_features):
+                z[:, j] = np.where(x[:, j] >= c[j], 1, 0)
+            clf = BernoulliNB()
+            clf.fit(z, y)
+            y_pred = clf.predict(z)
+            fpr, tpr, _ = sklearn_metrics.roc_curve(y, y_pred)
+            return sklearn_metrics.auc(fpr, tpr)
+
+        def calc_J_old(c):
             N1 = np.sum(y)
             N0 = data_size - N1
             P1 = np.zeros(num_features)  # P(X_j >= c_j / Y = 1)
@@ -76,7 +86,8 @@ class NaiveBayes:
             sens = tp / (tp + fn)
             spec = tn / (tn + fp)
             return 0.5 * (sens + spec)
-                    
+
+
         if use_genetic:
             varbound = np.array([[lb[j], ub[j]] for j in range(num_features)])
             print(varbound)

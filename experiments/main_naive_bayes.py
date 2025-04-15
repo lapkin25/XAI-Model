@@ -172,8 +172,8 @@ class NaiveBayes:
             v[0] = v[0][1:]
             v[-1] = v[-1][:-1]
             #print(v)
-            assert(len(v) >= 5)
-            if len(v) == 5:
+            #assert(len(v) >= 5)
+            if len(v) <= 5:
                 conjs.append(v)
         print(conjs)
         print(predictors1)

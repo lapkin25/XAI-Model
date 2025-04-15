@@ -289,7 +289,7 @@ for it in range(1, 1 + num_splits):
     #print(model1.triples)
     model1.fit_with_triples(x_train, y_train)
     for i, t in enumerate(model1.triples):
-        print(predictors[t[0]], '&', predictors[t[1]], '&', predictors[t[2]], '-> w =', model1.triples_logistic_model.coef_[i])
+        print(predictors[t[0]], '&', predictors[t[1]], '&', predictors[t[2]], '-> w =', model1.triples_logistic_model.coef_[0][i])
     p = model1.predict_proba_with_triples(x_test, y_test)
     auc = sklearn_metrics.roc_auc_score(y_test, p)
     print("AUC:", auc)

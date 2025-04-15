@@ -150,7 +150,7 @@ class NaiveBayes:
 
     # выделить решающие правила
     def interpret(self):
-        predictors1 = map(lambda s: "_".join(s.split()), predictors)
+        predictors1 = list(map(lambda s: "_".join(s.split()), predictors))
         vars = symbols(" ".join(predictors1))
         minterms = []
         print(vars)
@@ -160,7 +160,32 @@ class NaiveBayes:
             print(v, '->', y_pred)
             if y_pred:
                 minterms.append(v)
-        print(SOPform(vars, minterms))  # вывод сокращенной ДНФ
+        dnf = SOPform(vars, minterms)
+        print(dnf)  # вывод сокращенной ДНФ
+        conjs = []  # список конъюнктов (список списков имен переменных)
+        for mt in str(dnf).split("|"):
+            v = list(map(lambda s: s.strip(), mt.split("&")))
+            # убираем скобки с начала и с конца
+            v[0] = v[0][1:]
+            v[-1] = v[-1][:-1]
+            #print(v)
+            assert(len(v) >= 5)
+            if len(v) == 5:
+                conjs.append(v)
+        print(conjs)
+        print(predictors1)
+        triples = []
+        for v in itertools.combinations(predictors1, 3):
+            #print(v)
+            cnt = 0
+            for c in conjs:
+                if all([vitem in c for vitem in v]):
+                    cnt += 1
+            #print(v, cnt)
+            triples.append((v, cnt))
+        triples.sort(key=lambda t: t[1], reverse=True)
+        for t in triples:
+            print(t[0], t[1])
 
 
 def find_predictors_to_invert(data, predictors):

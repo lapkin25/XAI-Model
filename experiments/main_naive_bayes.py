@@ -13,15 +13,21 @@ from pyDOE import lhs
 from geneticalgorithm import geneticalgorithm as ga
 #from permetrics.classification import ClassificationMetric
 from sklearn.naive_bayes import BernoulliNB
+import itertools
+from sympy.logic import SOPform
+from sympy import symbols
+
 
 class NaiveBayes:
     def __init__(self):
         self.cutoffs = None  # пороги для каждого предиктора
         self.clf = None
+        self.num_features = None
 
     # находит оптимальные пороги
     def fit(self, x, y, use_genetic=True):
         data_size, num_features = x.shape[0], x.shape[1]
+        self.num_features = num_features
         self.cutoffs = np.zeros(num_features)
 
         num_samples = 10000
@@ -144,7 +150,17 @@ class NaiveBayes:
 
     # выделить решающие правила
     def interpret(self):
-        pass
+        predictors1 = map(lambda s: "_".join(s.split()), predictors)
+        vars = symbols(" ".join(predictors1))
+        minterms = []
+        print(vars)
+        for v in itertools.product([0, 1], repeat=self.num_features):
+            #print(np.array(v).reshape(1, -1))
+            y_pred = self.clf.predict(np.array(v).reshape(1, -1))
+            print(v, '->', y_pred)
+            if y_pred:
+                minterms.append(v)
+        print(SOPform(vars, minterms))  # вывод сокращенной ДНФ
 
 
 def find_predictors_to_invert(data, predictors):
@@ -209,5 +225,6 @@ for it in range(1, 1 + num_splits):
     model1.fit(x_train, y_train)
     print_model(model1, data)
     auc1, sen1, spec1 = test_model(model1, x_test, y_test, threshold)
+    model1.interpret()
 
     csvwriter.writerow(map(str, [auc1, sen1, spec1]))

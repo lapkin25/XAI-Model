@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 import sklearn.metrics as sklearn_metrics
 import math
-from permetrics.classification import ClassificationMetric
+#from permetrics.classification import ClassificationMetric
 
 
 class MinEntropy:
@@ -153,7 +153,7 @@ def find_predictors_to_invert(data, predictors):
     return invert_predictors
 
 
-def print_model(model, data):
+def print_model(model, data, x_train, y_train, x_test, y_test):
     print("=" * 10 + "\nМодель")
     print("Пороги:")
     for k, feature_name in enumerate(predictors):
@@ -170,19 +170,31 @@ def print_model(model, data):
         val = data.get_coord(feature_name, xj_cutoff)
         s = '≤' if feature_name in data.inverted_predictors else '≥'
         print(" & ", feature_name, " ", s, val, sep='')
+
         tp = 0
         fp = 0
-        y_pred = np.zeros(data.x.shape[0])
-        for i in range(data.x.shape[0]):
-            if data.x[i, k] >= model.cutoffs[k] and data.x[i, j] >= xj_cutoff:
-                y_pred[i] = 1
-                if data.y[i] == 1:
+        #y_pred = np.zeros(x_train.shape[0])
+        for i in range(x_train.shape[0]):
+            if x_train[i, k] >= model.cutoffs[k] and x_train[i, j] >= xj_cutoff:
+                #y_pred[i] = 1
+                if y_train[i] == 1:
                     tp += 1
                 else:
                     fp += 1
-        print("   TP = ", tp, " FP = ", fp, " Prob = ", tp / (tp + fp))
-        cm = ClassificationMetric(data.y, y_pred)
-        print("   Gini = ", cm.gini_index(average=None))
+        print("На обучающей:   TP = ", tp, " FP = ", fp, " Prob = ", tp / (tp + fp))
+
+        tp = 0
+        fp = 0
+        for i in range(x_test.shape[0]):
+            if x_test[i, k] >= model.cutoffs[k] and x_test[i, j] >= xj_cutoff:
+                if y_test[i] == 1:
+                    tp += 1
+                else:
+                    fp += 1
+        print("На тестовой:   TP = ", tp, " FP = ", fp, " Prob = ", tp / (tp + fp))
+
+        #cm = ClassificationMetric(data.y, y_pred)
+        #print("   Gini = ", cm.gini_index(average=None))
     #print("Веса:", model.individual_weights)
     #print("Комбинированные веса:", model.combined_weights)
     #print("Интерсепт:", model.intercept)
@@ -225,12 +237,12 @@ for it in range(1, 1 + num_splits):
 
     model1 = MinEntropy()
     model1.fit(x_train, y_train, simplified=True)
-    print_model(model1, data)
+    print_model(model1, data, x_train, y_train, x_test, y_test)
     auc1, sen1, spec1 = test_model(model1, x_test, y_test, threshold)
 
     model2 = MinEntropy()
     model2.fit(x_train, y_train, simplified=False)
-    print_model(model2, data)
+    print_model(model2, data, x_train, y_train, x_test, y_test)
     auc2, sen2, spec2 = test_model(model2, x_test, y_test, threshold)
 
     csvwriter.writerow(map(str, [auc1, sen1, spec1, auc2, sen2, spec2]))

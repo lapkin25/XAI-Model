@@ -26,7 +26,7 @@ class Data:
         self.output = output_feature
         self.inverted_predictors = invert_predictors
 
-        print("До исключения пропусков:", self.dataset[selected_predictors + [output_feature]].shape)
+        print("До исключения пропусков:", self.dataset[selected_predictors + [output_feature]].shape, np.sum(self.dataset[output_feature].dropna().to_numpy(dtype=int)))
 
         data_x_y = self.dataset[selected_predictors + [output_feature]].dropna()
 

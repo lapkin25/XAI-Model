@@ -27,7 +27,7 @@ def find_predictors_to_invert(data, predictors):
     return invert_predictors
 
 
-def find_threshold_rect(x_, y_, labels_):
+def find_threshold_rect(x_, y_, labels_, min_x, min_y):
     # сортируем точки по убыванию y
     ind = np.argsort(y_)
     ind = ind[::-1]
@@ -39,8 +39,8 @@ def find_threshold_rect(x_, y_, labels_):
     N0 = n - N1  # число нулей
 
     max_auc = 0.0
-    a = None
-    b = None
+    a = min_x  #None
+    b = min_y  #None
 
     x_coord = SortedList()  # x-координаты всех добавленных точек
     ones_x_coord = SortedList()  # x-координаты всех добавленных единиц
@@ -58,7 +58,7 @@ def find_threshold_rect(x_, y_, labels_):
 
                 auc = 0.5 + 0.5 * ones_right / N1 - 0.5 * zeros_right / N0
 
-                if auc > max_auc:
+                if auc > max_auc and x1 >= min_x and y[i] >= min_y:
                     max_auc = auc
                     a = x1
                     b = y[i]
@@ -77,8 +77,8 @@ def plot_2d(x1, x1_name, x1_plot_name, x2, x2_name, x2_plot_name, y, a, b, file_
     val_a = data.get_coord(x1_name, a)
     val_b = data.get_coord(x2_name, b)
 
-    plt.scatter(val_x1[y == 0], val_x2[y == 0], c='blue', linewidths=1)
-    plt.scatter(val_x1[y == 1], val_x2[y == 1], c='red', linewidths=1)
+    plt.scatter(val_x1[y == 0], val_x2[y == 0], c='blue', alpha=0.5, linewidths=1)
+    plt.scatter(val_x1[y == 1], val_x2[y == 1], c='red', alpha=0.5, linewidths=1)
     plt.axline((val_a, val_b), (val_a, max(val_x2)), c='green')
     plt.axline((val_a, val_b), (max(val_x1), val_b), c='green')
     plt.xlabel(x1_plot_name)
@@ -175,7 +175,7 @@ class MaxAUCRectModel:
                     y_train, y_test = y[train_index], y[test_index]
                     print("  Fold", fold)
                     # находим пороги на обучающей выборке
-                    a, b, auc_train = find_threshold_rect(x_train[:, ind1], x_train[:, ind2], y_train[:])
+                    a, b, auc_train = find_threshold_rect(x_train[:, ind1], x_train[:, ind2], y_train[:], min_thresholds[ind1], min_thresholds[ind2])
                     # учитываем минимально допустимые пороги
                     a = max(a, min_thresholds[ind1])
                     b = max(b, min_thresholds[ind2])
@@ -309,6 +309,7 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
 normal_thresholds = [0, 80, 3, 115, 50, 100, 100, 0.35, 5.6, 115]
+#normal_thresholds = [0, 0, 0, 0, 1000, 0, 1000, 0, 0, 1000]
 min_thresholds = []
 for i, nt in enumerate(normal_thresholds):
     val_normal = nt

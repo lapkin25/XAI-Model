@@ -193,8 +193,8 @@ def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None):
     if recalc_Bx:
         Bx = ((n1 * p1 + n2 * p2) - n2 * By) / n1
 
-    plt.scatter(x1[y == 0], x2[y == 0], c='blue', linewidths=1)
-    plt.scatter(x1[y == 1], x2[y == 1], c='red', linewidths=1)
+    plt.scatter(x1[y == 0], x2[y == 0], c='blue', alpha=0.5, linewidths=1)
+    plt.scatter(x1[y == 1], x2[y == 1], c='red', alpha=0.5, linewidths=1)
     plt.axline((Ax, Ay), (Bx, By), c='green')
     plt.xlabel(x1_name)
     plt.ylabel(x2_name)

@@ -161,7 +161,7 @@ class MaxAUCRectModel:
 
     def fit_cross_val(self, x, y, x_final_test, y_final_test):
         data_size, num_features = x.shape[0], x.shape[1]
-        NSPLITS = 5
+        NSPLITS = 10
         skf = StratifiedKFold(n_splits=NSPLITS)
         # Находим для каждой пары признаков средний порог и средний AUC
         z = None
@@ -308,7 +308,7 @@ predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Клас�
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
-normal_thresholds = [0, 80, 3, 115, 50, 0, 100, 0, 5.6, 115]
+normal_thresholds = [0, 80, 3, 115, 50, 0, 100, 0.25, 5.6, 115]
 #normal_thresholds = [0, 0, 0, 0, 1000, 0, 1000, 0, 0, 1000]
 min_thresholds = []
 for i, nt in enumerate(normal_thresholds):

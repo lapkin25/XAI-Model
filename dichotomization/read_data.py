@@ -59,6 +59,14 @@ class Data:
             val = -val
         return val
 
+    def invert_coord(self, feature_name, val_):
+        feature = self.predictors.index(feature_name)
+        val = val_
+        if feature_name in self.inverted_predictors:
+            val = -val
+        scaled_val = (val - self.scaler_mean[feature]) / self.scaler_scale[feature]
+        return scaled_val
+
     def binarize(self, selected_predictors, output_feature, thresholds):
         data_x_y = self.dataset[selected_predictors + [output_feature]].dropna()
         data_x = data_x_y[selected_predictors].to_numpy()

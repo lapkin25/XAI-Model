@@ -77,8 +77,8 @@ def plot_2d(x1, x1_name, x1_plot_name, x2, x2_name, x2_plot_name, y, a, b, file_
     val_a = data.get_coord(x1_name, a)
     val_b = data.get_coord(x2_name, b)
 
-    plt.scatter(val_x1[y == 0], val_x2[y == 0], c='blue', alpha=0.5, linewidths=1)
-    plt.scatter(val_x1[y == 1], val_x2[y == 1], c='red', alpha=0.5, linewidths=1)
+    plt.scatter(val_x1[y == 0], val_x2[y == 0], marker='.', c='blue')  #, alpha=0.5)  #, linewidths=1)
+    plt.scatter(val_x1[y == 1], val_x2[y == 1], marker='x', c='red')  #alpha=0.5
     plt.axline((val_a, val_b), (val_a, max(val_x2)), c='green')
     plt.axline((val_a, val_b), (max(val_x1), val_b), c='green')
     plt.xlabel(x1_plot_name)
@@ -329,6 +329,16 @@ print(a, b)
 print("AUC =", auc)
 plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], a, b)
 """
+
+"""
+ind1 = 0
+ind2 = 6
+plot_2d(data.x[:, ind1], predictors[ind1], predictors_eng[ind1],
+        data.x[:, ind2], predictors[ind2], predictors_eng[ind2], data.y[:],
+        data.invert_coord(predictors[ind1], 51), data.invert_coord(predictors[ind2], 0.54),
+        file_name="fig_rect/" + predictors[ind1] + "_" + predictors[ind2] + "_eng.png")
+"""
+
 
 threshold = 0.03  #0.04
 num_combined_features = 12  #10

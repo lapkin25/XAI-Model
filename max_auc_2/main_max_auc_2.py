@@ -455,11 +455,11 @@ print(px, py, nx, ny)
 #plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], px, py, nx, ny)
 
 
-threshold = 0.03  #0.04
-num_combined_features = 25  #10
+threshold = 0.12  #0.04
+num_combined_features = 20  #10
 
 num_splits = 1
-random_state = 123
+random_state = 1234 #123
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
@@ -512,8 +512,8 @@ for it in range(1, 1 + num_splits):
                       "]")
                 plot_2d(data.x[:, ind1], predictors_eng[ind1], data.x[:, ind2], predictors_eng[ind2], data.y[:], px, py, nx, ny,
                         file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + ".png")
-                plot_2d(data.x[:, ind1], predictors_rus[ind1], data.x[:, ind2], predictors_rus[ind2], data.y[:], px, py, nx, ny,
-                        file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png")
+                #plot_2d(data.x[:, ind1], predictors_rus[ind1], data.x[:, ind2], predictors_rus[ind2], data.y[:], px, py, nx, ny,
+                #        file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png")
             k += 1
 
 

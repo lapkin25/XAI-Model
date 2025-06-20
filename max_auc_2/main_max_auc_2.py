@@ -431,8 +431,8 @@ class MaxAUC2Model:
 #data = Data("DataSet.xlsx")
 data = Data("STEMI.xlsx", STEMI=True)
 #predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
-predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
-              'RR 600-1200', 'интервал PQ 120-200']
+predictors = ['NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА',
+              'RR 600-1200', 'интервал PQ 120-200', 'Возраст', 'Killip']
 #predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
 #predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
 predictors_eng = predictors
@@ -456,7 +456,7 @@ print(px, py, nx, ny)
 
 
 threshold = 0.12  #0.04
-num_combined_features = 20  #10
+num_combined_features = 30  #20  #10
 
 num_splits = 1
 random_state = 1234 #123

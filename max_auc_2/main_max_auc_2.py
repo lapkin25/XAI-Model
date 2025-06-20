@@ -168,6 +168,13 @@ def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None):
     max_x1 = np.max(x1)
     max_x2 = np.max(x2)
 
+    if x1_name == "NER1":
+        max_x1 = 15000
+        x2 = x2[x1 < max_x1]
+        y = y[x1 < max_x1]
+        x1 = x1[x1 < max_x1]
+
+
     # находим точки A, B, принадлежащие прямой
     Ax = min_x1
     Ay = ((n1 * p1 + n2 * p2) - n1 * min_x1) / n2

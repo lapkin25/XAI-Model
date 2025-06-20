@@ -49,6 +49,16 @@ class Data:
             self.dataset.loc[:, ('isAFAfter')] = None
             self.dataset.loc[(self.dataset['ФП b (после чкв)'] == 'да'), ('isAFAfter')] = 1
             self.dataset.loc[(self.dataset['ФП b (после чкв)'] == 'нет'), ('isAFAfter')] = 0
+            name = 'NLR'
+            name1 = 'Нейтрофилы (абсолютное значение)(a)'
+            name2 = 'Лимфоциты (абсолютное значение)'
+            #self.dataset[name] = np.NaN
+            self.dataset[name] = self.dataset[(name1)] / self.dataset[(name2)]
+            name = 'SII'
+            name1 = 'Тромбоциты'
+            name2 = 'NLR'
+            #self.dataset[name] = np.NaN
+            self.dataset[name] = self.dataset[(name1)] * self.dataset[(name2)]
 
 
     def prepare(self, selected_predictors, output_feature, invert_predictors, scale_data=True):

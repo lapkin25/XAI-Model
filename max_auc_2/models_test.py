@@ -11,6 +11,7 @@ sys.path.insert(1, '../dichotomization')
 from dichotomization.read_data import Data
 import pandas as pd
 import numpy as np
+import statsmodels.api as sm
 import xgboost as xgb
 from catboost import CatBoostClassifier
 
@@ -124,6 +125,13 @@ df.loc[(df['SIRI'] < -0.2214291 * df['NER1'] + 15.083793), ('F11')] = 0
 #интервал PQ 120-200 ≤ 6.990229316303869 * СОЭ + -33.99949272780614
 df.loc[(df['интервал PQ 120-200'] <= 6.99022 * df['СОЭ'] - 33.9994), ('F12')] = 1
 df.loc[(df['интервал PQ 120-200'] > 6.99022 * df['СОЭ'] - 33.9994), ('F12')] = 0
+
+"""
+#СОЭ ≥ -1.4868320722442998 * Возраст + 121.26085586837232
+df.loc[(df['СОЭ'] >= -1.48683207 * df['Возраст'] + 121.2608558), ('F13')] = 1
+df.loc[(df['СОЭ'] < -1.48683207 * df['Возраст'] + 121.2608558), ('F13')] = 0
+"""
+
 
 """
 #СОЭ ≥ -1.4868320722442998 * Возраст + 121.26085586837232
@@ -317,6 +325,14 @@ for feat in features:
 
     # Выборка из одного признака
     x_feat = np.array(df[feat]).reshape(-1, 1)
+
+    ct = pd.crosstab(y1, df[feat])
+    table = sm.stats.Table2x2(ct, shift_zeros=False)
+    print(table)
+    odds_ratio = table.oddsratio
+    confint = table.oddsratio_confint()
+
+    print('Odds ratio, 95% CI', odds_ratio, confint)
 
     # Повторить 10 раз
     for j in range(100):

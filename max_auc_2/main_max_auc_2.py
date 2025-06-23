@@ -173,6 +173,11 @@ def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None):
         x2 = x2[x1 < max_x1]
         y = y[x1 < max_x1]
         x1 = x1[x1 < max_x1]
+    if x2_name == "NER1":
+        max_x2 = 15000
+        x1 = x1[x2 < max_x2]
+        y = y[x2 < max_x2]
+        x2 = x2[x2 < max_x2]
 
 
     # находим точки A, B, принадлежащие прямой

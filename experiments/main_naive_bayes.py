@@ -1,4 +1,7 @@
 import sys
+
+from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb
 sys.path.insert(1, '../dichotomization')
 
 from dichotomization.read_data import Data
@@ -9,7 +12,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 import sklearn.metrics as sklearn_metrics
 import math
-from pyDOE import lhs
+#from pyDOE import lhs
 from geneticalgorithm import geneticalgorithm as ga
 #from permetrics.classification import ClassificationMetric
 from sklearn.naive_bayes import BernoulliNB
@@ -39,13 +42,25 @@ class NaiveBayes:
         lb = np.min(x, axis=0)
         ub = np.max(x, axis=0)
 
+        m_d1 = 3
+        n_e1 = 180
+        lr = 0.1
+        m_d = 2
+        n_e = 100
+        spw = 1
+
         def calc_J(c):
             z = np.zeros((data_size, num_features), dtype=int)
             for j in range(num_features):
                 z[:, j] = np.where(x[:, j] >= c[j], 1, 0)
-            clf = BernoulliNB()
+            #clf = BernoulliNB()
+            #clf = RandomForestClassifier(n_estimators=n_e1, max_depth=m_d1)
+            #clf = LogisticRegression()
+            clf = xgb.XGBClassifier(learning_rate=lr, eval_metric="auc", scale_pos_weight=spw,
+                              max_depth=m_d, n_estimators=n_e)  # random_state?
             clf.fit(z, y)
-            y_pred = clf.predict(z)
+            #y_pred = clf.predict(z)
+            y_pred = clf.predict_proba(z)[:, 1]
             fpr, tpr, _ = sklearn_metrics.roc_curve(y, y_pred)
             return sklearn_metrics.auc(fpr, tpr)
 
@@ -102,7 +117,7 @@ class NaiveBayes:
             varbound = np.array([[lb[j], ub[j]] for j in range(num_features)])
             #print(varbound)
 
-            algorithm_param = {'max_num_iteration': 1000, \
+            algorithm_param = {'max_num_iteration': 100,#1000, \
                                'population_size': 100, \
                                'mutation_probability': 0.1, \
                                'elit_ratio': 0.01, \
@@ -114,14 +129,18 @@ class NaiveBayes:
             def f(c):
                 return -calc_J(c)
 
-            model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound, algorithm_parameters=algorithm_param, convergence_curve=False)
+            model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound, algorithm_parameters=algorithm_param, convergence_curve=True)#False)
             model.run()
             self.cutoffs = model.output_dict['variable']
             #self.cutoffs = np.array([0.72358296, 2.20297099, 1.20732979, 0.71223686, 0.9679637, 0.55899361, 0.30359288, 5.04075139, 0.70719669, 1.0690253]) # result['variable']
             z = np.zeros((data_size, num_features), dtype=int)
             for j in range(num_features):
                 z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
-            clf = BernoulliNB()
+            #clf = BernoulliNB()
+            #clf = RandomForestClassifier(n_estimators=n_e1, max_depth=m_d1)
+            #clf = LogisticRegression()
+            clf = xgb.XGBClassifier(learning_rate=lr, eval_metric="auc", scale_pos_weight=spw,
+                                    max_depth=m_d, n_estimators=n_e)
             clf.fit(z, y)
             self.clf = clf
         else:

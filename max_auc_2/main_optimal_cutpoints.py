@@ -61,6 +61,7 @@ class PairsModel:
 
         lb = np.min(x, axis=0)
         ub = np.max(x, axis=0)
+        #print(lb, ub)
         varbound = np.array([[lb[j], ub[j]] for j in range(num_features)])
         algorithm_param = {'max_num_iteration': 100,  # 1000,
                            'population_size': 100,
@@ -140,7 +141,7 @@ class PairsModel:
         sol_per_pop = 20  # Number of solutions in the population.
         num_genes = num_features
 
-        gene_space = [{'low': lb[j], 'high': ub[j]} for j in range(num_features)]
+        gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.7] for j in range(num_features)]
 
         def on_generation(ga_instance):
             print(f"Generation = {ga_instance.generations_completed}")

@@ -140,6 +140,8 @@ class PairsModel:
         sol_per_pop = 20  # Number of solutions in the population.
         num_genes = num_features
 
+        gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else range(5) for j in range(num_features)]
+
         def on_generation(ga_instance):
             print(f"Generation = {ga_instance.generations_completed}")
             print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
@@ -149,7 +151,8 @@ class PairsModel:
                                sol_per_pop=sol_per_pop,
                                num_genes=num_genes,
                                fitness_func=fitness_func,
-                               on_generation=on_generation)
+                               on_generation=on_generation,
+                               gene_space=gene_space)
 
         # Running the GA to optimize the parameters of the function.
         ga_instance.run()

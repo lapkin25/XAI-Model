@@ -140,7 +140,7 @@ class PairsModel:
         sol_per_pop = 20  # Number of solutions in the population.
         num_genes = num_features
 
-        gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else range(5) for j in range(num_features)]
+        gene_space = [{'low': lb[j], 'high': ub[j]} for j in range(num_features)]
 
         def on_generation(ga_instance):
             print(f"Generation = {ga_instance.generations_completed}")

@@ -63,7 +63,7 @@ class PairsModel:
         ub = np.max(x, axis=0)
         #print(lb, ub)
 
-        def calc_J(c):
+        def calc_J_auc(c):
             z_train = np.zeros((x_train.shape[0], num_features), dtype=int)
             for j in range(num_features):
                 z_train[:, j] = np.where(x_train[:, j] >= c[j], 1, 0)
@@ -78,6 +78,18 @@ class PairsModel:
             auc_test = sklearn_metrics.roc_auc_score(y_test, y_pred)
 
             return auc_test
+
+        def calc_J(c):
+            z_train = np.zeros((x_train.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_train[:, j] = np.where(x_train[:, j] >= c[j], 1, 0)
+            logistic_pairs_model = LogisticPairsModel()
+            logistic_pairs_model.fit(z_train, y_train)
+            y_pred = logistic_pairs_model.predict_proba(z_train)[:, 1]
+            J_neg = np.sum(y_train * np.log(y_pred) + (1 - y_train) * np.log(1 - y_pred))
+            return J_neg
+
+
 
         def fitness_func(ga_instance, solution, solution_idx):
             return calc_J(solution)

@@ -135,10 +135,10 @@ class PairsModel:
         def fitness_func(ga_instance, solution, solution_idx):
             return calc_J(solution)
 
-        num_generations = 100  # Number of generations.
-        num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
+        num_generations = 200  # Number of generations.
+        num_parents_mating = 25  #10  # Number of solutions to be selected as parents in the mating pool.
 
-        sol_per_pop = 20  # Number of solutions in the population.
+        sol_per_pop = 50 #20  # Number of solutions in the population.
         num_genes = num_features
 
         gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
@@ -158,7 +158,7 @@ class PairsModel:
         # Running the GA to optimize the parameters of the function.
         ga_instance.run()
 
-        ga_instance.plot_fitness()
+        #ga_instance.plot_fitness()
 
         # Returning the details of the best solution.
         solution, solution_fitness, solution_idx = ga_instance.best_solution(ga_instance.last_generation_fitness)
@@ -166,7 +166,27 @@ class PairsModel:
         print(f"Fitness value of the best solution = {solution_fitness}")
         print(f"Index of the best solution : {solution_idx}")
 
+        #solution = np.array([ 0.76530869,  0.0537224,   1.6,         1.86447204,  2.66886953,  0.67305026, 0.10364104,  7.55377103, -1.89968567,  1.91729093])
+
+        # покоординатное улучшение...
+
+        best_J = calc_J(solution)
+        print(solution, best_J)
+        for j in range(len(solution)):
+            print("j =", j)
+            new_solution = solution.copy()
+            for val in np.linspace(lb[j], ub[j]):
+                new_solution[j] = val
+                J = calc_J(new_solution)
+                if J > best_J:
+                    print('test')
+                    solution = new_solution.copy()
+                    best_J = J
+            print(solution, best_J)
+
         self.cutpoints = solution
+
+
 
         # далее обучить логистическую регрессию на парах
         z = np.zeros((data_size, num_features), dtype=int)

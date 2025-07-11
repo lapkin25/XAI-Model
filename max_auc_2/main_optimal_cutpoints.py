@@ -62,75 +62,22 @@ class PairsModel:
         lb = np.min(x, axis=0)
         ub = np.max(x, axis=0)
         #print(lb, ub)
-        varbound = np.array([[lb[j], ub[j]] for j in range(num_features)])
-        algorithm_param = {'max_num_iteration': 100,  # 1000,
-                           'population_size': 100,
-                           'mutation_probability': 0.1,
-                           'elit_ratio': 0.01,
-                           'crossover_probability': 0.5,
-                           'parents_portion': 0.3,
-                           'crossover_type': 'uniform',
-                           'max_iteration_without_improv': None}
 
         def calc_J(c):
-            z = np.zeros((data_size, num_features), dtype=int)
+            z_train = np.zeros((x_train.shape[0], num_features), dtype=int)
             for j in range(num_features):
-                z[:, j] = np.where(x[:, j] >= c[j], 1, 0)
-
-            def specificity_score(y_true, y_pred):
-                tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
-                specificity = tn / (tn + fp)
-                return specificity
-
-            # Функция для преобразования вероятностей в бинарные метки с заданным порогом
-            def custom_predict(proba, threshold=threshold):
-                return (proba >= threshold).astype(int)
-
-            # Пользовательская функция для расчета метрик с учетом порога
-            def custom_metric(y_true, proba, metric_func, threshold=threshold):  # Устанавливаем порог 0.05
-                y_pred = custom_predict(proba, threshold)
-                return metric_func(y_true, y_pred)
-
-            def custom_f1_score(y_true, proba, threshold=threshold):
-                return custom_metric(y_true, proba, f1_score, threshold=threshold)
-
-            def custom_accuracy_score(y_true, proba, threshold=threshold):
-                return custom_metric(y_true, proba, accuracy_score, threshold=threshold)
-
-            def custom_recall_score(y_true, proba, threshold=threshold):
-                return custom_metric(y_true, proba, recall_score, threshold=threshold)
-
-            def custom_specificity_score(y_true, proba, threshold=threshold):
-                return custom_metric(y_true, proba, specificity_score, threshold=threshold)
-
-            # Настроим метрики для кросс-валидации
-            scoring = {'roc_auc': make_scorer(roc_auc_score, response_method='predict_proba'),
-                       'f1': make_scorer(custom_f1_score, response_method='predict_proba', threshold=threshold),
-                       'accuracy': make_scorer(custom_accuracy_score, response_method='predict_proba', threshold=threshold),
-                       'sensitivity': make_scorer(custom_recall_score, response_method='predict_proba', threshold=threshold),
-                       'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=threshold)
-                       }
+                z_train[:, j] = np.where(x_train[:, j] >= c[j], 1, 0)
+            z_test = np.zeros((x_test.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_test[:, j] = np.where(x_test[:, j] >= c[j], 1, 0)
 
             logistic_pairs_model = LogisticPairsModel()
 
-            # Выполним кросс-валидацию с использованием cross_validate
-            cv_results = cross_validate(logistic_pairs_model, z, y, cv=StratifiedKFold(n_splits=10),
-                                        scoring=scoring, return_train_score=False)
+            logistic_pairs_model.fit(z_train, y_train)
+            y_pred = logistic_pairs_model.predict_proba(z_test)[:, 1]
+            auc_test = sklearn_metrics.roc_auc_score(y_test, y_pred)
 
-            return np.mean(cv_results['test_roc_auc'])
-
-        def f(c):
-            val = calc_J(c)
-            print(val)
-            #return -calc_J(c)
-            return -val
-
-        """
-        model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound,
-                   algorithm_parameters=algorithm_param, convergence_curve=True)  # False)
-        model.run()        
-        self.cutpoints = model.output_dict['variable']
-        """
+            return auc_test
 
         def fitness_func(ga_instance, solution, solution_idx):
             return calc_J(solution)
@@ -147,26 +94,38 @@ class PairsModel:
             print(f"Generation = {ga_instance.generations_completed}")
             print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
 
-        ga_instance = pygad.GA(num_generations=num_generations,
-                               num_parents_mating=num_parents_mating,
-                               sol_per_pop=sol_per_pop,
-                               num_genes=num_genes,
-                               fitness_func=fitness_func,
-                               on_generation=on_generation,
-                               gene_space=gene_space)
+        skf = StratifiedKFold(n_splits=10)
+        all_cutpoints = []
+        for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
+            x_train, x_test = x[train_index, :], x[test_index, :]
+            y_train, y_test = y[train_index], y[test_index]
+            print("  Fold", fold + 1)
 
-        # Running the GA to optimize the parameters of the function.
-        ga_instance.run()
+            ga_instance = pygad.GA(num_generations=num_generations,
+                                   num_parents_mating=num_parents_mating,
+                                   sol_per_pop=sol_per_pop,
+                                   num_genes=num_genes,
+                                   fitness_func=fitness_func,
+                                   on_generation=on_generation,
+                                   gene_space=gene_space)
 
-        ga_instance.plot_fitness()
+            # Running the GA to optimize the parameters of the function.
+            ga_instance.run()
 
-        # Returning the details of the best solution.
-        solution, solution_fitness, solution_idx = ga_instance.best_solution(ga_instance.last_generation_fitness)
-        print(f"Parameters of the best solution : {solution}")
-        print(f"Fitness value of the best solution = {solution_fitness}")
-        print(f"Index of the best solution : {solution_idx}")
+            #ga_instance.plot_fitness()
 
-        self.cutpoints = solution
+            # Returning the details of the best solution.
+            solution, solution_fitness, solution_idx = ga_instance.best_solution(ga_instance.last_generation_fitness)
+            print(f"Parameters of the best solution : {solution}")
+            print(f"Fitness value of the best solution = {solution_fitness}")
+            print(f"Index of the best solution : {solution_idx}")
+
+            all_cutpoints.append(solution)
+
+
+        print(np.vstack(all_cutpoints))
+        self.cutpoints = np.mean(np.vstack(all_cutpoints), axis=0)
+        print(self.cutpoints)
 
         # далее обучить логистическую регрессию на парах
         z = np.zeros((data_size, num_features), dtype=int)

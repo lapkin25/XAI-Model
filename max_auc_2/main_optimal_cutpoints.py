@@ -301,6 +301,11 @@ class PairsModel:
 
         #solution = np.array([ 0.76530869,  0.0537224,   1.6,         1.86447204,  2.66886953,  0.67305026, 0.10364104,  7.55377103, -1.89968567,  1.91729093])
 
+        # последний расчет (с помощью loss):
+        # [0.79233634 0.74136715 1.6        1.66997645 2.44436646 0.79264738
+        #  0.12555406 3.06368225 0.36896079 1.17035111]
+
+
         #skf = StratifiedKFold(n_splits=10)
         #for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
         #    x_train, x_test = x[train_index, :], x[test_index, :]

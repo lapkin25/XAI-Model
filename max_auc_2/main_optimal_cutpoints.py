@@ -51,7 +51,51 @@ class LogisticPairsModel:
 
 
 class PhenotypesModel:
-    pass
+    def __init__(self):
+        self.logistic_model = None
+        self.phenotypes = None  # для каждого предиктора - список пар с этим предиктором, входящих в фенотип
+        self._estimator_type = 'classifier'
+        self.classes_ = np.array([0, 1])
+
+    def get_phenotypes(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        z = np.zeros((data_size, num_features), dtype=int)
+        for j in range(num_features):
+            if len(self.phenotypes[j]) == 0:
+                z[:, j] = x[:, j]
+            else:
+                for k in range(len(self.phenotypes[j])):
+                    z[:, j] |= x[:, j] & x[:, self.phenotypes[j][k]]
+        return z
+
+
+    def fit(self, x, y):
+        # x - только бинарные признаки
+        data_size, num_features = x.shape[0], x.shape[1]
+        self.phenotypes = [[] for _ in range(num_features)]
+        for j in range(num_features):
+            y_pred = x[:, j].copy()
+            auc_1 = sklearn_metrics.roc_auc_score(y, y_pred)  # AUC для отдельного предиктора
+            for k in range(num_features):
+                if j == k:
+                    continue
+                y_pred = x[:, j] & x[:, k]
+                auc_2 = sklearn_metrics.roc_auc_score(y, y_pred)  # AUC для пары предикторов
+                if auc_2 > auc_1:
+                    self.phenotypes[j].append(k)
+
+        z = self.get_phenotypes(x)
+
+        self.logistic_model = LogisticRegression(max_iter=10000)
+        self.logistic_model.fit(z, y)
+
+    def predict_proba(self, x):
+        # x - только бинарные признаки
+        z = self.get_phenotypes(x)
+        return self.logistic_model.predict_proba(z)
+
+    def get_params(self, deep=False):
+        return {}
 
 
 class PairsModel:
@@ -115,7 +159,8 @@ class PairsModel:
                        'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=threshold)
                        }
 
-            logistic_pairs_model = LogisticPairsModel()
+            #logistic_pairs_model = LogisticPairsModel()
+            logistic_pairs_model = PhenotypesModel()
 
             # Выполним кросс-валидацию с использованием cross_validate
             cv_results = cross_validate(logistic_pairs_model, z, y, cv=StratifiedKFold(n_splits=10),
@@ -139,10 +184,10 @@ class PairsModel:
         def fitness_func(ga_instance, solution, solution_idx):
             return calc_J(solution)
 
-        num_generations = 200  # Number of generations.
-        num_parents_mating = 25  #10  # Number of solutions to be selected as parents in the mating pool.
+        num_generations = 10  # Number of generations.
+        num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
 
-        sol_per_pop = 50 #20  # Number of solutions in the population.
+        sol_per_pop = 20  # Number of solutions in the population.
         num_genes = num_features
 
         gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
@@ -195,7 +240,7 @@ class PairsModel:
         """
 
         # покоординатное улучшение...
-
+        """
         best_J = calc_J(solution)
         print(solution, best_J)
         for j in range(len(solution)):
@@ -209,16 +254,17 @@ class PairsModel:
                     solution = new_solution.copy()
                     best_J = J
             print(solution, best_J)
+        """
 
         self.cutpoints = solution
-
 
 
         # далее обучить логистическую регрессию на парах
         z = np.zeros((data_size, num_features), dtype=int)
         for j in range(num_features):
             z[:, j] = np.where(x[:, j] >= self.cutpoints[j], 1, 0)
-        self.logistic_pairs_model = LogisticPairsModel()
+        #self.logistic_pairs_model = LogisticPairsModel()
+        self.logistic_pairs_model = PhenotypesModel()
         self.logistic_pairs_model.fit(z, y)
 
     def predict_proba(self, x):
@@ -243,21 +289,35 @@ def find_predictors_to_invert(data, predictors):
     return invert_predictors
 
 
-def print_model(model, data):
+def print_model(model, data, phenotypes=True):
     print("=" * 10 + "\nМодель")
     print("Пороги:")
     for k, feature_name in enumerate(predictors):
         val = data.get_coord(feature_name, model.cutpoints[k])
         s = '≤' if feature_name in data.inverted_predictors else '≥'
         print(feature_name, " ", s, val, sep='')
-    print("Пары:")
-    k = 0
-    # print(x)
-    num_features = len(predictors)
-    for i in range(num_features):
-        for j in range(i + 1, num_features):
-            print(predictors[i], predictors[j], model.logistic_pairs_model.logistic_model.coef_.ravel()[k])
-            k += 1
+    if phenotypes:
+        print("Фенотипы:")
+        for j in range(len(predictors)):
+            if len(model.logistic_pairs_model.phenotypes[j]) == 0:
+                print(predictors[j])
+            else:
+                print(predictors[j], '& (', end='')
+                for k in range(len(model.logistic_pairs_model.phenotypes[j])):
+                    if k > 0:
+                        print(' | ', end='')
+                    print(predictors[model.logistic_pairs_model.phenotypes[j][k]], end='')
+                print(')')
+        print("Веса:", model.logistic_pairs_model.logistic_model.coef_.ravel())
+    else:
+        print("Пары:")
+        k = 0
+        # print(x)
+        num_features = len(predictors)
+        for i in range(num_features):
+            for j in range(i + 1, num_features):
+                print(predictors[i], predictors[j], model.logistic_pairs_model.logistic_model.coef_.ravel()[k])
+                k += 1
 
 
 def test_model(model, x_test, y_test, p_threshold):

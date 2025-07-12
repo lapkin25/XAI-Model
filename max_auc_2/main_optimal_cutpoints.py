@@ -50,6 +50,10 @@ class LogisticPairsModel:
         return {}
 
 
+class PhenotypesModel:
+    pass
+
+
 class PairsModel:
     def __init__(self):
         self.cutpoints = None
@@ -155,6 +159,7 @@ class PairsModel:
                                on_generation=on_generation,
                                gene_space=gene_space)
 
+
         # Running the GA to optimize the parameters of the function.
         ga_instance.run()
 
@@ -166,7 +171,28 @@ class PairsModel:
         print(f"Fitness value of the best solution = {solution_fitness}")
         print(f"Index of the best solution : {solution_idx}")
 
+
         #solution = np.array([ 0.76530869,  0.0537224,   1.6,         1.86447204,  2.66886953,  0.67305026, 0.10364104,  7.55377103, -1.89968567,  1.91729093])
+
+        #skf = StratifiedKFold(n_splits=10)
+        #for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
+        #    x_train, x_test = x[train_index, :], x[test_index, :]
+        #    y_train, y_test = y[train_index], y[test_index]
+
+        """
+        for j in range(len(solution)):
+            y_pred = (x[:, j] >= solution[j])
+            auc_val = sklearn_metrics.roc_auc_score(y, y_pred)
+            print("j =", j, "  auc =", auc_val)
+            for k in range(j + 1, len(solution)):
+                y_pred = (x[:, j] >= solution[j]) & (x[:, k] >= solution[k])
+                auc_val = sklearn_metrics.roc_auc_score(y, y_pred)
+                print("   j =", j, "& k =", k, " auc =", auc_val)
+
+        y_pred = (x[:, 0] >= solution[0]) & ((x[:, 5] >= solution[5]) | (x[:, 6] >= solution[6]))
+        auc_val = sklearn_metrics.roc_auc_score(y, y_pred)
+        print("фенотип ", auc_val)
+        """
 
         # покоординатное улучшение...
 

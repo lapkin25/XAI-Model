@@ -74,7 +74,7 @@ class PhenotypesModel:
         data_size, num_features = x.shape[0], x.shape[1]
         self.phenotypes = [[] for _ in range(num_features)]
         for j in range(num_features):
-            y_pred = x[:, j].copy()
+            y_pred = x[:, j]
             auc_1 = sklearn_metrics.roc_auc_score(y, y_pred)  # AUC для отдельного предиктора
             for k in range(num_features):
                 if j == k:

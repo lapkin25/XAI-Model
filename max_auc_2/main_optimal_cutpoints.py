@@ -184,7 +184,7 @@ class PairsModel:
         def fitness_func(ga_instance, solution, solution_idx):
             return calc_J(solution)
 
-        num_generations = 10  # Number of generations.
+        num_generations = 100  # Number of generations.
         num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
 
         sol_per_pop = 20  # Number of solutions in the population.

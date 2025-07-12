@@ -181,8 +181,38 @@ class PairsModel:
         self.cutpoints = model.output_dict['variable']
         """
 
+        def calc_J_auc(c):
+            z_train = np.zeros((x_train.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_train[:, j] = np.where(x_train[:, j] >= c[j], 1, 0)
+            """
+            z_test = np.zeros((x_test.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_test[:, j] = np.where(x_test[:, j] >= c[j], 1, 0)
+            """
+
+            #logistic_pairs_model = LogisticPairsModel()
+            logistic_pairs_model = PhenotypesModel()
+
+            logistic_pairs_model.fit(z_train, y_train)
+            #y_pred = logistic_pairs_model.predict_proba(z_test)[:, 1]
+            y_pred = logistic_pairs_model.predict_proba(z_train)[:, 1]
+            auc_train = sklearn_metrics.roc_auc_score(y_train, y_pred)
+
+            return auc_train
+
+        def calc_J_loss(c):
+            z_train = np.zeros((x_train.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_train[:, j] = np.where(x_train[:, j] >= c[j], 1, 0)
+            logistic_pairs_model = PhenotypesModel()
+            logistic_pairs_model.fit(z_train, y_train)
+            y_pred = logistic_pairs_model.predict_proba(z_train)[:, 1]
+            J_neg = np.sum(y_train * np.log(y_pred) + (1 - y_train) * np.log(1 - y_pred))
+            return J_neg
+
         def fitness_func(ga_instance, solution, solution_idx):
-            return calc_J(solution)
+            return calc_J_loss(solution)
 
         num_generations = 100  # Number of generations.
         num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
@@ -196,6 +226,7 @@ class PairsModel:
             print(f"Generation = {ga_instance.generations_completed}")
             print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
 
+        """
         ga_instance = pygad.GA(num_generations=num_generations,
                                num_parents_mating=num_parents_mating,
                                sol_per_pop=sol_per_pop,
@@ -215,6 +246,57 @@ class PairsModel:
         print(f"Parameters of the best solution : {solution}")
         print(f"Fitness value of the best solution = {solution_fitness}")
         print(f"Index of the best solution : {solution_idx}")
+        """
+
+        skf = StratifiedKFold(n_splits=10)
+        all_cutpoints = []
+        auc_history = []
+        for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
+            x_train, x_test = x[train_index, :], x[test_index, :]
+            y_train, y_test = y[train_index], y[test_index]
+            print("  Fold", fold + 1)
+
+            ga_instance = pygad.GA(num_generations=num_generations,
+                                   num_parents_mating=num_parents_mating,
+                                   sol_per_pop=sol_per_pop,
+                                   num_genes=num_genes,
+                                   fitness_func=fitness_func,
+                                   on_generation=on_generation,
+                                   gene_space=gene_space)
+
+            # Running the GA to optimize the parameters of the function.
+            ga_instance.run()
+
+            #ga_instance.plot_fitness()
+
+            # Returning the details of the best solution.
+            solution, solution_fitness, solution_idx = ga_instance.best_solution(ga_instance.last_generation_fitness)
+            print(f"Parameters of the best solution : {solution}")
+            print(f"Fitness value of the best solution = {solution_fitness}")
+            print(f"Index of the best solution : {solution_idx}")
+
+            all_cutpoints.append(solution)
+
+            print("На тестовой части фолда")
+            z_train = np.zeros((x_train.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_train[:, j] = np.where(x_train[:, j] >= solution[j], 1, 0)
+            z_test = np.zeros((x_test.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_test[:, j] = np.where(x_test[:, j] >= solution[j], 1, 0)
+            logistic_pairs_model = PhenotypesModel()
+            logistic_pairs_model.fit(z_train, y_train)
+            # y_pred = logistic_pairs_model.predict_proba(z_test)[:, 1]
+            y_pred = logistic_pairs_model.predict_proba(z_test)[:, 1]
+            auc_test = sklearn_metrics.roc_auc_score(y_test, y_pred)
+            print("AUC =", auc_test)
+            auc_history.append(auc_test)
+
+        print("Кросс-валидация AUC", np.mean(auc_history))
+
+        print(np.vstack(all_cutpoints))
+        self.cutpoints = np.mean(np.vstack(all_cutpoints), axis=0)
+        print(self.cutpoints)
 
 
         #solution = np.array([ 0.76530869,  0.0537224,   1.6,         1.86447204,  2.66886953,  0.67305026, 0.10364104,  7.55377103, -1.89968567,  1.91729093])
@@ -256,7 +338,7 @@ class PairsModel:
             print(solution, best_J)
         """
 
-        self.cutpoints = solution
+        #self.cutpoints = solution
 
 
         # далее обучить логистическую регрессию на парах

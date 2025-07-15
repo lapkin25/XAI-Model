@@ -59,6 +59,8 @@ class Data:
             name2 = 'NLR'
             #self.dataset[name] = np.NaN
             self.dataset[name] = self.dataset[(name1)] * self.dataset[(name2)]
+            # создаем копию признака
+            self.dataset['RR 600-1200_'] = self.dataset['RR 600-1200']
 
 
     def prepare(self, selected_predictors, output_feature, invert_predictors, scale_data=True):
@@ -83,6 +85,9 @@ class Data:
         data_y = data_x_y[output_feature].to_numpy(dtype=int)
 
         print("Умерших", np.sum(data_y))
+
+        #print(np.min(data_x, axis=0))
+        #print(np.max(data_x, axis=0))
 
         if scale_data:
             scaler = preprocessing.StandardScaler().fit(data_x)

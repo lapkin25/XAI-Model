@@ -250,7 +250,10 @@ class PairsModel:
         print(f"Index of the best solution : {solution_idx}")
         """
 
-        skf = StratifiedKFold(n_splits=10)
+        if data_file == 'AF':
+            skf = StratifiedKFold(n_splits=5)
+        else:
+            skf = StratifiedKFold(n_splits=10)
         all_cutpoints = []
         auc_history = []
         for fold, (train_index, test_index) in enumerate(skf.split(x, y)):

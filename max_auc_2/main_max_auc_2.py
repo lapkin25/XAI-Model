@@ -169,12 +169,12 @@ def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None):
     max_x2 = np.max(x2)
 
     if x1_name == "NER1":
-        max_x1 = 15000
+        max_x1 = 2000
         x2 = x2[x1 < max_x1]
         y = y[x1 < max_x1]
         x1 = x1[x1 < max_x1]
     if x2_name == "NER1":
-        max_x2 = 15000
+        max_x2 = 2000
         x1 = x1[x2 < max_x2]
         y = y[x2 < max_x2]
         x2 = x2[x2 < max_x2]

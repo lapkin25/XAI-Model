@@ -12,11 +12,16 @@ import csv
 from sklearn.model_selection import StratifiedKFold
 import statsmodels.api as sm
 
+data_file = 'AF'  # 'M'
+
 
 def find_predictors_to_invert(data, predictors):
     # обучаем логистическую регрессию с выделенными признаками,
     #   выбираем признаки с отрицательными весами
-    data.prepare(predictors, "Dead", [])
+    if data_file == 'AF':
+        data.prepare(predictors, "isAFAfter", [])
+    else:
+        data.prepare(predictors, "Dead", [])
     logist_reg = LogisticRegression()
     logist_reg.fit(data.x, data.y)
     weights = logist_reg.coef_.ravel()
@@ -300,15 +305,33 @@ class MaxAUCRectModel:
 
         return self.model.predict_proba(z[:, self.features_used])
 
-
-data = Data("DataSet.xlsx")
-predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
-predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
-predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
+if data_file == 'AF':
+    data = Data("STEMI.xlsx", STEMI=True)
+else:
+    data = Data("DataSet.xlsx")
+if data_file == 'AF':
+    predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+                  'RR 600-1200', 'интервал PQ 120-200']
+    predictors_eng = predictors
+    predictors_rus = predictors
+else:
+    predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+    predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
+    predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
 invert_predictors = find_predictors_to_invert(data, predictors)
-data.prepare(predictors, "Dead", invert_predictors)
+if data_file == 'AF':
+    predictors.append('RR 600-1200_')
+    invert_predictors.append('RR 600-1200_')
+print("Inverted", invert_predictors)
+if data_file == 'AF':
+    data.prepare(predictors, "isAFAfter", invert_predictors)
+else:
+    data.prepare(predictors, "Dead", invert_predictors)
 
-normal_thresholds = [0, 80, 3, 115, 50, 0, 100, 0.25, 5.6, 115]
+if data_file == 'AF':
+    normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 0, 500, 2000]
+else:
+    normal_thresholds = [0, 80, 3, 115, 50, 0, 100, 0.25, 5.6, 115]
 #normal_thresholds = [0, 0, 0, 0, 1000, 0, 1000, 0, 0, 1000]
 min_thresholds = []
 for i, nt in enumerate(normal_thresholds):
@@ -340,11 +363,19 @@ plot_2d(data.x[:, ind1], predictors[ind1], predictors_eng[ind1],
 """
 
 
-threshold = 0.03  #0.04
+if data_file == 'AF':
+    threshold = 0.12
+else:
+    threshold = 0.03  #0.04
+
 num_combined_features = 12  #10
 
 num_splits = 1
-random_state = 123
+
+if data_file == 'AF':
+    random_state = 1234
+else:
+    random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')

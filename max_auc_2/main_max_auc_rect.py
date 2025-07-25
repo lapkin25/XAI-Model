@@ -167,7 +167,7 @@ class MaxAUCRectModel:
 
     def fit_cross_val(self, x, y, x_final_test, y_final_test):
         data_size, num_features = x.shape[0], x.shape[1]
-        NSPLITS = 10
+        NSPLITS = 5
         skf = StratifiedKFold(n_splits=NSPLITS)
         # Находим для каждой пары признаков средний порог и средний AUC
         z = None

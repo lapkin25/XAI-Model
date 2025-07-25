@@ -109,7 +109,7 @@ class PairsModel:
         data_size, num_features = x.shape[0], x.shape[1]
         self.cutpoints = np.zeros(num_features)
 
-        lb = np.min(x, axis=0)
+        lb = np.array(min_thresholds)  #np.min(x, axis=0)
         ub = np.max(x, axis=0)
         #print(lb, ub)
         varbound = np.array([[lb[j], ub[j]] for j in range(num_features)])
@@ -448,6 +448,22 @@ if data_file == 'AF':
     data.prepare(predictors, "isAFAfter", invert_predictors)
 else:
     data.prepare(predictors, "Dead", invert_predictors)
+
+if data_file == 'AF':
+    #normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 0, 500, 2000]
+    normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 1200, 120, 600]
+else:
+    normal_thresholds = [0, 80, 3, 115, 50, 0, 100, 0.25, 5.6, 115]
+
+min_thresholds = []
+for i, nt in enumerate(normal_thresholds):
+    val_normal = nt
+    if predictors[i] in invert_predictors:
+        val_normal = -val_normal
+    val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
+    min_thresholds.append(val)
+# min_thresholds -- минимально допустимый порог (в преобразованных координатах)
+
 
 if data_file == 'AF':
     threshold = 0.12

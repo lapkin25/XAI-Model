@@ -12,7 +12,8 @@ import csv
 from sklearn.model_selection import StratifiedKFold
 import statsmodels.api as sm
 
-data_file = 'AF'  # 'M'
+#data_file = 'AF'  # 'M'
+data_file = 'M'
 
 
 def find_predictors_to_invert(data, predictors):
@@ -330,6 +331,7 @@ else:
 
 if data_file == 'AF':
     normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 0, 500, 2000]
+    #normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 1200, 120, 600]
 else:
     normal_thresholds = [0, 80, 3, 115, 50, 0, 100, 0.25, 5.6, 115]
 #normal_thresholds = [0, 0, 0, 0, 1000, 0, 1000, 0, 0, 1000]

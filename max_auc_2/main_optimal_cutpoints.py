@@ -78,6 +78,10 @@ class PhenotypesModel:
         for j in range(num_features):
             y_pred = x[:, j]
             auc_1 = sklearn_metrics.roc_auc_score(y, y_pred)  # AUC для отдельного предиктора
+
+            # включаем в фенотип все пары, у которых AUC выше, чем у отдельного ФР
+            #   (это старый метод)
+            """
             for k in range(num_features):
                 if j == k:
                     continue
@@ -85,6 +89,33 @@ class PhenotypesModel:
                 auc_2 = sklearn_metrics.roc_auc_score(y, y_pred)  # AUC для пары предикторов
                 if auc_2 > auc_1:
                     self.phenotypes[j].append(k)
+            """
+
+            # формируем фенотипы с помощью максимизации AUC фенотипов
+            #   (это новый метод)
+
+            current_auc = auc_1  # текущий достигнутый AUC фенотипа
+            cur_y_pred = np.zeros_like(x[:, j], dtype=int)
+            while True:
+                max_auc_2 = 0
+                best_k = None
+                for k in range(num_features):
+                    if j == k or k in self.phenotypes[j]:
+                        continue
+                    # пробуем добавить k-й предиктор к фенотипу
+                    new_y_pred = cur_y_pred | (x[:, j] & x[:, k])
+                    # TODO: дальше во внутреннем цикле из пары можно сделать тройку (если AUC тройки выше AUC пары)
+                    auc_2 = sklearn_metrics.roc_auc_score(y, new_y_pred)  # считаем AUC фенотипа
+                    if auc_2 > max_auc_2:
+                        max_auc_2 = auc_2
+                        best_k = k
+                if max_auc_2 > current_auc:
+                    current_auc = max_auc_2
+                    cur_y_pred = cur_y_pred | (x[:, j] & x[:, best_k])
+                    self.phenotypes[j].append(best_k)
+                else:
+                    break
+
 
         z = self.get_phenotypes(x)
 

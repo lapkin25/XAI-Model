@@ -12,8 +12,8 @@ import csv
 from sklearn.model_selection import StratifiedKFold
 import statsmodels.api as sm
 
-#data_file = 'AF'  # 'M'
-data_file = 'M'
+data_file = 'AF'  # 'M'
+#data_file = 'M'
 
 
 def find_predictors_to_invert(data, predictors):
@@ -83,10 +83,24 @@ def plot_2d(x1, x1_name, x1_plot_name, x2, x2_name, x2_plot_name, y, a, b, file_
     val_a = data.get_coord(x1_name, a)
     val_b = data.get_coord(x2_name, b)
 
+    max_val_x1 = np.max(val_x1)
+    max_val_x2 = np.max(val_x2)
+
+    if x1_name == "NER1":
+        max_val_x1 = 2000
+        val_x2 = val_x2[val_x1 < max_val_x1]
+        y = y[val_x1 < max_val_x1]
+        val_x1 = val_x1[val_x1 < max_val_x1]
+    if x2_name == "NER1":
+        max_val_x2 = 2000
+        val_x1 = val_x1[val_x2 < max_val_x2]
+        y = y[val_x2 < max_val_x2]
+        val_x2 = val_x2[val_x2 < max_val_x2]
+
     plt.scatter(val_x1[y == 0], val_x2[y == 0], marker='.', c='blue')  #, alpha=0.5)  #, linewidths=1)
     plt.scatter(val_x1[y == 1], val_x2[y == 1], marker='x', c='red')  #alpha=0.5
-    plt.axline((val_a, val_b), (val_a, max(val_x2)), c='green')
-    plt.axline((val_a, val_b), (max(val_x1), val_b), c='green')
+    plt.axline((val_a, val_b), (val_a, max_val_x2), c='green')
+    plt.axline((val_a, val_b), (max_val_x1, val_b), c='green')
     plt.xlabel(x1_plot_name)
     plt.ylabel(x2_plot_name)
     if file_name is not None:

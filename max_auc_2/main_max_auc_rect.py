@@ -338,7 +338,7 @@ else:
 invert_predictors = find_predictors_to_invert(data, predictors)
 if data_file == 'AF':
     predictors.append('RR 600-1200_')
-    invert_predictors.append('RR 600-1200_')
+    #invert_predictors.append('RR 600-1200_')
 print("Inverted", invert_predictors)
 if data_file == 'AF':
     data.prepare(predictors, "isAFAfter", invert_predictors)
@@ -347,7 +347,7 @@ else:
 
 if data_file == 'AF':
     #normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 0, 500, 2000]
-    normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 1200, 120, 600]
+    normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 600, 200, 1200]
 else:
     normal_thresholds = [0, 80, 3, 115, 50, 0, 100, 0.25, 5.6, 115]
 #normal_thresholds = [0, 0, 0, 0, 1000, 0, 1000, 0, 0, 1000]

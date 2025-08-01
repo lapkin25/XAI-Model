@@ -405,6 +405,16 @@ def find_predictors_to_invert(data, predictors):
         data.prepare(predictors, "isAFAfter", [])
     else:
         data.prepare(predictors, "Dead", [])
+
+    invert_predictors = []
+    for i, feature_name in enumerate(predictors):
+        logist_reg = LogisticRegression()
+        logist_reg.fit(data.x[:, i].reshape(-1, 1), data.y)
+        weight = logist_reg.coef_.ravel()[0]
+        if weight < 0:
+            invert_predictors.append(feature_name)
+
+    """
     logist_reg = LogisticRegression()
     logist_reg.fit(data.x, data.y)
     weights = logist_reg.coef_.ravel()
@@ -412,6 +422,8 @@ def find_predictors_to_invert(data, predictors):
     for i, feature_name in enumerate(predictors):
         if weights[i] < 0:
             invert_predictors.append(feature_name)
+    """
+
     return invert_predictors
 
 
@@ -466,14 +478,14 @@ else:
     data = Data("DataSet.xlsx")
 if data_file == 'AF':
     predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
-                  'RR 600-1200', 'интервал PQ 120-200']
+                  'RR 600-1200', 'интервал PQ 120-200', 'EOS', 'NEUT']
 else:
     predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 invert_predictors = find_predictors_to_invert(data, predictors)
-#print("Inverted:", invert_predictors)
+print("Inverted:", invert_predictors)
 if data_file == 'AF':
     predictors.append('RR 600-1200_')
-    invert_predictors.append('RR 600-1200_')
+    #invert_predictors.append('RR 600-1200_')
 
 if data_file == 'AF':
     data.prepare(predictors, "isAFAfter", invert_predictors)
@@ -482,7 +494,7 @@ else:
 
 if data_file == 'AF':
     #normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 0, 500, 2000]
-    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 1200, 120, 600]
+    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 1200, 200, 1.0, 0.0, 600]
 else:
     normal_thresholds = [0, 80, 3, 115, 50, 0, 1.0, 0.25, 5.6, 115]
 

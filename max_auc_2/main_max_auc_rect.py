@@ -23,13 +23,15 @@ def find_predictors_to_invert(data, predictors):
         data.prepare(predictors, "isAFAfter", [])
     else:
         data.prepare(predictors, "Dead", [])
-    logist_reg = LogisticRegression()
-    logist_reg.fit(data.x, data.y)
-    weights = logist_reg.coef_.ravel()
+
     invert_predictors = []
     for i, feature_name in enumerate(predictors):
-        if weights[i] < 0:
+        logist_reg = LogisticRegression()
+        logist_reg.fit(data.x[:, i].reshape(-1, 1), data.y)
+        weight = logist_reg.coef_.ravel()[0]
+        if weight < 0:
             invert_predictors.append(feature_name)
+
     return invert_predictors
 
 

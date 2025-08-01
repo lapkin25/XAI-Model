@@ -477,8 +477,10 @@ if data_file == 'AF':
 else:
     data = Data("DataSet.xlsx")
 if data_file == 'AF':
+    #predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+    #             'RR 600-1200', 'интервал PQ 120-200', 'EOS', 'NEUT']
     predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
-                  'RR 600-1200', 'интервал PQ 120-200', 'EOS', 'NEUT']
+                  'RR 600-1200', 'интервал PQ 120-200']
 else:
     predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 invert_predictors = find_predictors_to_invert(data, predictors)
@@ -494,7 +496,8 @@ else:
 
 if data_file == 'AF':
     #normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 0, 500, 2000]
-    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 1200, 200, 1.0, 0.0, 600]
+    #normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 600, 200, 1.0, 0.0, 1200]
+    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 600, 200, 1200]
 else:
     normal_thresholds = [0, 80, 3, 115, 50, 0, 1.0, 0.25, 5.6, 115]
 

@@ -61,6 +61,7 @@ class Data:
             self.dataset[name] = self.dataset[(name1)] * self.dataset[(name2)]
             # создаем копию признака
             self.dataset['RR 600-1200_'] = self.dataset['RR 600-1200']
+            self.dataset['интервал PQ 120-200_'] = self.dataset['интервал PQ 120-200']
             self.dataset['EOS'] = self.dataset['Эозинофилы (относительное значение)']
             self.dataset['NEUT'] = self.dataset['Нейтрофилы (относительное значение)']
 

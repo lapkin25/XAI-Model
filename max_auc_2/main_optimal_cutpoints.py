@@ -11,7 +11,9 @@ from geneticalgorithm import geneticalgorithm as ga
 import sklearn.metrics as sklearn_metrics
 import pygad
 
+
 data_file = 'AF'  # 'M'
+
 
 
 class LogisticPairsModel:
@@ -131,6 +133,7 @@ class PhenotypesModel:
         return {}
 
 
+
 class PairsModel:
     def __init__(self):
         self.cutpoints = None
@@ -139,6 +142,7 @@ class PairsModel:
     def fit(self, x, y):
         data_size, num_features = x.shape[0], x.shape[1]
         self.cutpoints = np.zeros(num_features)
+
 
         lb = np.array(min_thresholds)  #np.min(x, axis=0)
         ub = np.max(x, axis=0)
@@ -251,6 +255,7 @@ class PairsModel:
         num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
 
         sol_per_pop = 20  # Number of solutions in the population.
+
         num_genes = num_features
 
         gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
@@ -259,7 +264,9 @@ class PairsModel:
             print(f"Generation = {ga_instance.generations_completed}")
             print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
 
+
         """
+
         ga_instance = pygad.GA(num_generations=num_generations,
                                num_parents_mating=num_parents_mating,
                                sol_per_pop=sol_per_pop,
@@ -279,6 +286,7 @@ class PairsModel:
         print(f"Parameters of the best solution : {solution}")
         print(f"Fitness value of the best solution = {solution_fitness}")
         print(f"Index of the best solution : {solution_idx}")
+
         """
 
         if data_file == 'AF':
@@ -335,11 +343,14 @@ class PairsModel:
         print(self.cutpoints)
 
 
+
         #solution = np.array([ 0.76530869,  0.0537224,   1.6,         1.86447204,  2.66886953,  0.67305026, 0.10364104,  7.55377103, -1.89968567,  1.91729093])
+
 
         # последний расчет (с помощью loss):
         # [0.79233634 0.74136715 1.6        1.66997645 2.44436646 0.79264738
         #  0.12555406 3.06368225 0.36896079 1.17035111]
+
 
 
         #skf = StratifiedKFold(n_splits=10)
@@ -363,7 +374,9 @@ class PairsModel:
         """
 
         # покоординатное улучшение...
+
         """
+
         best_J = calc_J(solution)
         print(solution, best_J)
         for j in range(len(solution)):
@@ -377,17 +390,21 @@ class PairsModel:
                     solution = new_solution.copy()
                     best_J = J
             print(solution, best_J)
+
         """
 
         #self.cutpoints = solution
+
 
 
         # далее обучить логистическую регрессию на парах
         z = np.zeros((data_size, num_features), dtype=int)
         for j in range(num_features):
             z[:, j] = np.where(x[:, j] >= self.cutpoints[j], 1, 0)
+
         #self.logistic_pairs_model = LogisticPairsModel()
         self.logistic_pairs_model = PhenotypesModel()
+
         self.logistic_pairs_model.fit(z, y)
 
     def predict_proba(self, x):
@@ -415,6 +432,7 @@ def find_predictors_to_invert(data, predictors):
             invert_predictors.append(feature_name)
 
     """
+
     logist_reg = LogisticRegression()
     logist_reg.fit(data.x, data.y)
     weights = logist_reg.coef_.ravel()
@@ -428,6 +446,7 @@ def find_predictors_to_invert(data, predictors):
 
 
 def print_model(model, data, phenotypes=True):
+
     print("=" * 10 + "\nМодель")
     print("Пороги:")
     for k, feature_name in enumerate(predictors):
@@ -459,6 +478,7 @@ def print_model(model, data, phenotypes=True):
 
 
 def t_model(model, x_test, y_test, p_threshold):
+
     p = model.predict_proba(x_test)[:, 1]
     auc = sklearn_metrics.roc_auc_score(y_test, p)
     print("AUC:", auc)
@@ -523,6 +543,7 @@ if data_file == 'AF':
 else:
     random_state = 123
 
+
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
 csvwriter.writerow(["auc_cv", "sen_cv", "spec_cv", "auc_test", "sen_test", "spec_test"])
@@ -538,4 +559,3 @@ for it in range(1, 1 + num_splits):
     model.fit(x_train, y_train)
     print_model(model, data)
     auc_test, sen_test, spec_test = t_model(model, x_test, y_test, threshold)
-

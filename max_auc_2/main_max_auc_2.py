@@ -484,7 +484,7 @@ if data_file == 'AF':
 else:
     threshold = 0.03
 
-num_combined_features = 30  #20  #10
+num_combined_features = 12  #20  #10
 
 num_splits = 1
 

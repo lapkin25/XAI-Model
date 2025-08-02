@@ -13,6 +13,10 @@ from sklearn.model_selection import StratifiedKFold
 import statsmodels.api as sm
 
 
+data_file = 'AF'  # 'M'
+
+
+
 # Функция возвращает:
 #  px, py - координаты точки, через которую пройдет прямая
 #  nx, ny - вектор нормали к прямой (смотрит в сторону класса "1")
@@ -440,19 +444,25 @@ class MaxAUC2Model:
         return self.model.predict_proba(z[:, self.features_used])
 
 
-#data = Data("DataSet.xlsx")
-data = Data("STEMI.xlsx", STEMI=True)
-#predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
-#predictors = ['NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА',
-#              'RR 600-1200', 'интервал PQ 120-200', 'Возраст', 'Killip', 'NBR1', 'SII']
-predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
-              'RR 600-1200', 'интервал PQ 120-200']  #, 'NBR1', 'SII']
-#predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
-#predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
-predictors_eng = predictors
-predictors_rus = predictors
-#data.prepare(predictors, "Dead", [], scale_data=False)  # не инвертируем предикторы
-data.prepare(predictors, "isAFAfter", [], scale_data=False)  # не инвертируем предикторы
+if data_file == 'AF':
+    data = Data("STEMI.xlsx", STEMI=True)
+else:
+    data = Data("DataSet.xlsx")
+if data_file == 'AF':
+    predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+                  'RR 600-1200', 'интервал PQ 120-200']  # , 'NBR1', 'SII']
+    predictors_eng = predictors
+    predictors_rus = predictors
+else:
+    predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+    predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
+    predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
+
+if data_file == 'AF':
+    data.prepare(predictors, "isAFAfter", [], scale_data=False)  # не инвертируем предикторы
+else:
+    data.prepare(predictors, "Dead", [], scale_data=False)  # не инвертируем предикторы
+
 
 #ind1 = 0
 #ind2 = 6
@@ -469,11 +479,19 @@ print(px, py, nx, ny)
 #plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], px, py, nx, ny)
 
 
-threshold = 0.12  #0.04
+if data_file == 'AF':
+    threshold = 0.12  #0.04
+else:
+    threshold = 0.03
+
 num_combined_features = 30  #20  #10
 
 num_splits = 1
-random_state = 1234 #123
+
+if data_file == 'AF':
+    random_state = 1234
+else:
+    random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')

@@ -13,6 +13,10 @@ from sklearn.model_selection import StratifiedKFold
 import statsmodels.api as sm
 
 
+data_file = 'AF'  # 'M'
+
+
+
 # Функция возвращает:
 #  px, py - координаты точки, через которую пройдет прямая
 #  nx, ny - вектор нормали к прямой (смотрит в сторону класса "1")
@@ -168,6 +172,18 @@ def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None):
     max_x1 = np.max(x1)
     max_x2 = np.max(x2)
 
+    if x1_name == "NER1":
+        max_x1 = 2000
+        x2 = x2[x1 < max_x1]
+        y = y[x1 < max_x1]
+        x1 = x1[x1 < max_x1]
+    if x2_name == "NER1":
+        max_x2 = 2000
+        x1 = x1[x2 < max_x2]
+        y = y[x2 < max_x2]
+        x2 = x2[x2 < max_x2]
+
+
     # находим точки A, B, принадлежащие прямой
     Ax = min_x1
     Ay = ((n1 * p1 + n2 * p2) - n1 * min_x1) / n2
@@ -193,8 +209,11 @@ def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None):
     if recalc_Bx:
         Bx = ((n1 * p1 + n2 * p2) - n2 * By) / n1
 
-    plt.scatter(x1[y == 0], x2[y == 0], c='blue', alpha=0.5, linewidths=1)
-    plt.scatter(x1[y == 1], x2[y == 1], c='red', alpha=0.5, linewidths=1)
+#    plt.scatter(x1[y == 0], x2[y == 0], c='blue', alpha=0.5, linewidths=1)
+#    plt.scatter(x1[y == 1], x2[y == 1], c='red', alpha=0.5, linewidths=1)
+    plt.scatter(x1[y == 0], x2[y == 0], marker='.', c='blue')  #, alpha=0.5)  #, linewidths=1)
+    plt.scatter(x1[y == 1], x2[y == 1], marker='x', c='red')  #alpha=0.5
+
     plt.axline((Ax, Ay), (Bx, By), c='green')
     plt.xlabel(x1_name)
     plt.ylabel(x2_name)
@@ -391,11 +410,13 @@ class MaxAUC2Model:
         self.model = model
         self.features_used = features_used
 
+        """
         z1 = z[:, features_used]
         z1 = sm.add_constant(z1)
         sm_model = sm.Logit(y, z1)
         result = sm_model.fit_regularized()
         print(result.summary())
+        """
 
 
     def predict_proba(self, x):
@@ -423,11 +444,25 @@ class MaxAUC2Model:
         return self.model.predict_proba(z[:, self.features_used])
 
 
-data = Data("DataSet.xlsx")
-predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
-predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
-predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
-data.prepare(predictors, "Dead", [], scale_data=False)  # не инвертируем предикторы
+if data_file == 'AF':
+    data = Data("STEMI.xlsx", STEMI=True)
+else:
+    data = Data("DataSet.xlsx")
+if data_file == 'AF':
+    predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+                  'RR 600-1200', 'интервал PQ 120-200']  # , 'NBR1', 'SII']
+    predictors_eng = predictors
+    predictors_rus = predictors
+else:
+    predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+    predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
+    predictors_rus = ["Возраст, лет", "ЧСС в минуту", "Класс ОСН по T. Killip", "Креатинин, мкмоль/л", "Фракция выброса левого желудочка, %", "Нейтрофилы, %", "Эозинофилы, %", "Тромбокрит, %", "Глюкоза, ммоль/л", "Систолическое АД, мм рт.ст."]
+
+if data_file == 'AF':
+    data.prepare(predictors, "isAFAfter", [], scale_data=False)  # не инвертируем предикторы
+else:
+    data.prepare(predictors, "Dead", [], scale_data=False)  # не инвертируем предикторы
+
 
 #ind1 = 0
 #ind2 = 6
@@ -444,11 +479,19 @@ print(px, py, nx, ny)
 #plot_2d(data.x[:, ind1], predictors[ind1], data.x[:, ind2], predictors[ind2], data.y[:], px, py, nx, ny)
 
 
-threshold = 0.03  #0.04
-num_combined_features = 12  #10
+if data_file == 'AF':
+    threshold = 0.12  #0.04
+else:
+    threshold = 0.03
+
+num_combined_features = 12  #20  #10
 
 num_splits = 1
-random_state = 123
+
+if data_file == 'AF':
+    random_state = 1234
+else:
+    random_state = 123
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
@@ -501,8 +544,8 @@ for it in range(1, 1 + num_splits):
                       "]")
                 plot_2d(data.x[:, ind1], predictors_eng[ind1], data.x[:, ind2], predictors_eng[ind2], data.y[:], px, py, nx, ny,
                         file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + ".png")
-                plot_2d(data.x[:, ind1], predictors_rus[ind1], data.x[:, ind2], predictors_rus[ind2], data.y[:], px, py, nx, ny,
-                        file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png")
+                #plot_2d(data.x[:, ind1], predictors_rus[ind1], data.x[:, ind2], predictors_rus[ind2], data.y[:], px, py, nx, ny,
+                #        file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png")
             k += 1
 
 

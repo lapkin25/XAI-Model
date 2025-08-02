@@ -12,6 +12,10 @@ import sklearn.metrics as sklearn_metrics
 import pygad
 
 
+data_file = 'AF'  # 'M'
+
+
+
 class LogisticPairsModel:
     def __init__(self):
         self.logistic_model = None
@@ -51,7 +55,83 @@ class LogisticPairsModel:
 
 
 class PhenotypesModel:
-    pass
+    def __init__(self):
+        self.logistic_model = None
+        self.phenotypes = None  # для каждого предиктора - список пар с этим предиктором, входящих в фенотип
+        self._estimator_type = 'classifier'
+        self.classes_ = np.array([0, 1])
+
+    def get_phenotypes(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        z = np.zeros((data_size, num_features), dtype=int)
+        for j in range(num_features):
+            if len(self.phenotypes[j]) == 0:
+                z[:, j] = x[:, j]
+            else:
+                for k in range(len(self.phenotypes[j])):
+                    z[:, j] |= x[:, j] & x[:, self.phenotypes[j][k]]
+        return z
+
+
+    def fit(self, x, y):
+        # x - только бинарные признаки
+        data_size, num_features = x.shape[0], x.shape[1]
+        self.phenotypes = [[] for _ in range(num_features)]
+        for j in range(num_features):
+            y_pred = x[:, j]
+            auc_1 = sklearn_metrics.roc_auc_score(y, y_pred)  # AUC для отдельного предиктора
+
+            # включаем в фенотип все пары, у которых AUC выше, чем у отдельного ФР
+            #   (это старый метод)
+            """
+            for k in range(num_features):
+                if j == k:
+                    continue
+                y_pred = x[:, j] & x[:, k]
+                auc_2 = sklearn_metrics.roc_auc_score(y, y_pred)  # AUC для пары предикторов
+                if auc_2 > auc_1:
+                    self.phenotypes[j].append(k)
+            """
+
+            # формируем фенотипы с помощью максимизации AUC фенотипов
+            #   (это новый метод)
+
+            current_auc = auc_1  # текущий достигнутый AUC фенотипа
+            cur_y_pred = np.zeros_like(x[:, j], dtype=int)
+            while True:
+                max_auc_2 = 0
+                best_k = None
+                for k in range(num_features):
+                    if j == k or k in self.phenotypes[j]:
+                        continue
+                    # пробуем добавить k-й предиктор к фенотипу
+                    new_y_pred = cur_y_pred | (x[:, j] & x[:, k])
+                    # TODO: дальше во внутреннем цикле из пары можно сделать тройку (если AUC тройки выше AUC пары)
+                    auc_2 = sklearn_metrics.roc_auc_score(y, new_y_pred)  # считаем AUC фенотипа
+                    if auc_2 > max_auc_2:
+                        max_auc_2 = auc_2
+                        best_k = k
+                if max_auc_2 > current_auc:
+                    current_auc = max_auc_2
+                    cur_y_pred = cur_y_pred | (x[:, j] & x[:, best_k])
+                    self.phenotypes[j].append(best_k)
+                else:
+                    break
+
+
+        z = self.get_phenotypes(x)
+
+        self.logistic_model = LogisticRegression(max_iter=10000)
+        self.logistic_model.fit(z, y)
+
+    def predict_proba(self, x):
+        # x - только бинарные признаки
+        z = self.get_phenotypes(x)
+        return self.logistic_model.predict_proba(z)
+
+    def get_params(self, deep=False):
+        return {}
+
 
 
 class PairsModel:
@@ -63,7 +143,8 @@ class PairsModel:
         data_size, num_features = x.shape[0], x.shape[1]
         self.cutpoints = np.zeros(num_features)
 
-        lb = np.min(x, axis=0)
+
+        lb = np.array(min_thresholds)  #np.min(x, axis=0)
         ub = np.max(x, axis=0)
         #print(lb, ub)
         varbound = np.array([[lb[j], ub[j]] for j in range(num_features)])
@@ -115,7 +196,8 @@ class PairsModel:
                        'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=threshold)
                        }
 
-            logistic_pairs_model = LogisticPairsModel()
+            #logistic_pairs_model = LogisticPairsModel()
+            logistic_pairs_model = PhenotypesModel()
 
             # Выполним кросс-валидацию с использованием cross_validate
             cv_results = cross_validate(logistic_pairs_model, z, y, cv=StratifiedKFold(n_splits=10),
@@ -136,13 +218,44 @@ class PairsModel:
         self.cutpoints = model.output_dict['variable']
         """
 
+        def calc_J_auc(c):
+            z_train = np.zeros((x_train.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_train[:, j] = np.where(x_train[:, j] >= c[j], 1, 0)
+            """
+            z_test = np.zeros((x_test.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_test[:, j] = np.where(x_test[:, j] >= c[j], 1, 0)
+            """
+
+            #logistic_pairs_model = LogisticPairsModel()
+            logistic_pairs_model = PhenotypesModel()
+
+            logistic_pairs_model.fit(z_train, y_train)
+            #y_pred = logistic_pairs_model.predict_proba(z_test)[:, 1]
+            y_pred = logistic_pairs_model.predict_proba(z_train)[:, 1]
+            auc_train = sklearn_metrics.roc_auc_score(y_train, y_pred)
+
+            return auc_train
+
+        def calc_J_loss(c):
+            z_train = np.zeros((x_train.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_train[:, j] = np.where(x_train[:, j] >= c[j], 1, 0)
+            logistic_pairs_model = PhenotypesModel()
+            logistic_pairs_model.fit(z_train, y_train)
+            y_pred = logistic_pairs_model.predict_proba(z_train)[:, 1]
+            J_neg = np.sum(y_train * np.log(y_pred) + (1 - y_train) * np.log(1 - y_pred))
+            return J_neg
+
         def fitness_func(ga_instance, solution, solution_idx):
-            return calc_J(solution)
+            return calc_J_loss(solution)
 
-        num_generations = 200  # Number of generations.
-        num_parents_mating = 25  #10  # Number of solutions to be selected as parents in the mating pool.
+        num_generations = 100  # Number of generations.
+        num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
 
-        sol_per_pop = 50 #20  # Number of solutions in the population.
+        sol_per_pop = 20  # Number of solutions in the population.
+
         num_genes = num_features
 
         gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
@@ -150,6 +263,9 @@ class PairsModel:
         def on_generation(ga_instance):
             print(f"Generation = {ga_instance.generations_completed}")
             print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
+
+
+        """
 
         ga_instance = pygad.GA(num_generations=num_generations,
                                num_parents_mating=num_parents_mating,
@@ -171,8 +287,71 @@ class PairsModel:
         print(f"Fitness value of the best solution = {solution_fitness}")
         print(f"Index of the best solution : {solution_idx}")
 
+        """
+
+        if data_file == 'AF':
+            skf = StratifiedKFold(n_splits=5)
+        else:
+            skf = StratifiedKFold(n_splits=10)
+        all_cutpoints = []
+        auc_history = []
+        for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
+            x_train, x_test = x[train_index, :], x[test_index, :]
+            y_train, y_test = y[train_index], y[test_index]
+            print("  Fold", fold + 1)
+
+            ga_instance = pygad.GA(num_generations=num_generations,
+                                   num_parents_mating=num_parents_mating,
+                                   sol_per_pop=sol_per_pop,
+                                   num_genes=num_genes,
+                                   fitness_func=fitness_func,
+                                   on_generation=on_generation,
+                                   gene_space=gene_space)
+
+            # Running the GA to optimize the parameters of the function.
+            ga_instance.run()
+
+            #ga_instance.plot_fitness()
+
+            # Returning the details of the best solution.
+            solution, solution_fitness, solution_idx = ga_instance.best_solution(ga_instance.last_generation_fitness)
+            print(f"Parameters of the best solution : {solution}")
+            print(f"Fitness value of the best solution = {solution_fitness}")
+            print(f"Index of the best solution : {solution_idx}")
+
+            all_cutpoints.append(solution)
+
+            print("На тестовой части фолда")
+            z_train = np.zeros((x_train.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_train[:, j] = np.where(x_train[:, j] >= solution[j], 1, 0)
+            z_test = np.zeros((x_test.shape[0], num_features), dtype=int)
+            for j in range(num_features):
+                z_test[:, j] = np.where(x_test[:, j] >= solution[j], 1, 0)
+            logistic_pairs_model = PhenotypesModel()
+            logistic_pairs_model.fit(z_train, y_train)
+            # y_pred = logistic_pairs_model.predict_proba(z_test)[:, 1]
+            y_pred = logistic_pairs_model.predict_proba(z_test)[:, 1]
+            auc_test = sklearn_metrics.roc_auc_score(y_test, y_pred)
+            print("AUC =", auc_test)
+            auc_history.append(auc_test)
+
+        print("Кросс-валидация AUC", np.mean(auc_history))
+
+        print(np.vstack(all_cutpoints))
+        self.cutpoints = np.mean(np.vstack(all_cutpoints), axis=0)
+        print(self.cutpoints)
+
+
 
         #solution = np.array([ 0.76530869,  0.0537224,   1.6,         1.86447204,  2.66886953,  0.67305026, 0.10364104,  7.55377103, -1.89968567,  1.91729093])
+
+
+        # последний расчет (с помощью loss):
+        # [0.79233634 0.74136715 1.6        1.66997645 2.44436646 0.79264738
+        #  0.12555406 3.06368225 0.36896079 1.17035111]
+
+
 
         #skf = StratifiedKFold(n_splits=10)
         #for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
@@ -196,6 +375,8 @@ class PairsModel:
 
         # покоординатное улучшение...
 
+        """
+
         best_J = calc_J(solution)
         print(solution, best_J)
         for j in range(len(solution)):
@@ -210,7 +391,9 @@ class PairsModel:
                     best_J = J
             print(solution, best_J)
 
-        self.cutpoints = solution
+        """
+
+        #self.cutpoints = solution
 
 
 
@@ -218,7 +401,10 @@ class PairsModel:
         z = np.zeros((data_size, num_features), dtype=int)
         for j in range(num_features):
             z[:, j] = np.where(x[:, j] >= self.cutpoints[j], 1, 0)
-        self.logistic_pairs_model = LogisticPairsModel()
+
+        #self.logistic_pairs_model = LogisticPairsModel()
+        self.logistic_pairs_model = PhenotypesModel()
+
         self.logistic_pairs_model.fit(z, y)
 
     def predict_proba(self, x):
@@ -232,7 +418,21 @@ class PairsModel:
 def find_predictors_to_invert(data, predictors):
     # обучаем логистическую регрессию с выделенными признаками,
     #   выбираем признаки с отрицательными весами
-    data.prepare(predictors, "Dead", [])
+    if data_file == 'AF':
+        data.prepare(predictors, "isAFAfter", [])
+    else:
+        data.prepare(predictors, "Dead", [])
+
+    invert_predictors = []
+    for i, feature_name in enumerate(predictors):
+        logist_reg = LogisticRegression()
+        logist_reg.fit(data.x[:, i].reshape(-1, 1), data.y)
+        weight = logist_reg.coef_.ravel()[0]
+        if weight < 0:
+            invert_predictors.append(feature_name)
+
+    """
+
     logist_reg = LogisticRegression()
     logist_reg.fit(data.x, data.y)
     weights = logist_reg.coef_.ravel()
@@ -240,27 +440,45 @@ def find_predictors_to_invert(data, predictors):
     for i, feature_name in enumerate(predictors):
         if weights[i] < 0:
             invert_predictors.append(feature_name)
+    """
+
     return invert_predictors
 
 
-def print_model(model, data):
+def print_model(model, data, phenotypes=True):
+
     print("=" * 10 + "\nМодель")
     print("Пороги:")
     for k, feature_name in enumerate(predictors):
         val = data.get_coord(feature_name, model.cutpoints[k])
         s = '≤' if feature_name in data.inverted_predictors else '≥'
         print(feature_name, " ", s, val, sep='')
-    print("Пары:")
-    k = 0
-    # print(x)
-    num_features = len(predictors)
-    for i in range(num_features):
-        for j in range(i + 1, num_features):
-            print(predictors[i], predictors[j], model.logistic_pairs_model.logistic_model.coef_.ravel()[k])
-            k += 1
+    if phenotypes:
+        print("Фенотипы:")
+        for j in range(len(predictors)):
+            if len(model.logistic_pairs_model.phenotypes[j]) == 0:
+                print(predictors[j])
+            else:
+                print(predictors[j], '& (', end='')
+                for k in range(len(model.logistic_pairs_model.phenotypes[j])):
+                    if k > 0:
+                        print(' | ', end='')
+                    print(predictors[model.logistic_pairs_model.phenotypes[j][k]], end='')
+                print(')')
+        print("Веса:", model.logistic_pairs_model.logistic_model.coef_.ravel())
+    else:
+        print("Пары:")
+        k = 0
+        # print(x)
+        num_features = len(predictors)
+        for i in range(num_features):
+            for j in range(i + 1, num_features):
+                print(predictors[i], predictors[j], model.logistic_pairs_model.logistic_model.coef_.ravel()[k])
+                k += 1
 
 
-def test_model(model, x_test, y_test, p_threshold):
+def t_model(model, x_test, y_test, p_threshold):
+
     p = model.predict_proba(x_test)[:, 1]
     auc = sklearn_metrics.roc_auc_score(y_test, p)
     print("AUC:", auc)
@@ -274,15 +492,57 @@ def test_model(model, x_test, y_test, p_threshold):
     return auc, sensitivity, specificity
 
 
-data = Data("DataSet.xlsx")
-predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+if data_file == 'AF':
+    data = Data("STEMI.xlsx", STEMI=True)
+else:
+    data = Data("DataSet.xlsx")
+if data_file == 'AF':
+    #predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+    #             'RR 600-1200', 'интервал PQ 120-200', 'EOS', 'NEUT']
+    predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+                  'RR 600-1200', 'интервал PQ 120-200']
+else:
+    predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 invert_predictors = find_predictors_to_invert(data, predictors)
-data.prepare(predictors, "Dead", invert_predictors)
+print("Inverted:", invert_predictors)
+if data_file == 'AF':
+    predictors.append('RR 600-1200_')
+    #invert_predictors.append('RR 600-1200_')
 
-threshold = 0.03
+if data_file == 'AF':
+    data.prepare(predictors, "isAFAfter", invert_predictors)
+else:
+    data.prepare(predictors, "Dead", invert_predictors)
+
+if data_file == 'AF':
+    #normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 0, 500, 2000]
+    #normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 600, 200, 1.0, 0.0, 1200]
+    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 600, 200, 1200]
+else:
+    normal_thresholds = [0, 80, 3, 115, 50, 0, 1.0, 0.25, 5.6, 115]
+
+min_thresholds = []
+for i, nt in enumerate(normal_thresholds):
+    val_normal = nt
+    if predictors[i] in invert_predictors:
+        val_normal = -val_normal
+    val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
+    min_thresholds.append(val)
+# min_thresholds -- минимально допустимый порог (в преобразованных координатах)
+
+
+if data_file == 'AF':
+    threshold = 0.12
+else:
+    threshold = 0.03
 
 num_splits = 1
-random_state = 123
+
+if data_file == 'AF':
+    random_state = 1234
+else:
+    random_state = 123
+
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
@@ -298,5 +558,4 @@ for it in range(1, 1 + num_splits):
     #auc_cv, sens_cv, spec_cv = model.fit(x_train, y_train)
     model.fit(x_train, y_train)
     print_model(model, data)
-    auc_test, sen_test, spec_test = test_model(model, x_test, y_test, threshold)
-
+    auc_test, sen_test, spec_test = t_model(model, x_test, y_test, threshold)

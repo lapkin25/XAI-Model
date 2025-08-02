@@ -6,7 +6,7 @@ from sklearn import preprocessing
 
 
 class Data:
-    def __init__(self, dataset_path):
+    def __init__(self, dataset_path, STEMI=False):
         self.dataset = pd.read_excel(dataset_path)
         self.predictors = []
         self.output = ""
@@ -15,6 +15,56 @@ class Data:
         self.y = None
         self.scaler_mean = None
         self.scaler_scale = None
+        if STEMI:
+            # убрали неопределенность по ФП в анамнезе
+            self.dataset = self.dataset.loc[self.dataset['ФП a (в анамнезе)'].isna() == False, :]
+            self.dataset = self.dataset.loc[(self.dataset['ФП a (в анамнезе)'] == 'нет') &
+                                            (self.dataset['ФП b (после чкв)'].isna() == False) &
+                                            (self.dataset['ФП при окс (до чкв)'] == 'нет'), :]
+            self.dataset.loc[(self.dataset['Эозинофилы (абсолютное значение)'] != 0.0) &
+                             (self.dataset['Эозинофилы (абсолютное значение)'].isna() == False) &
+                             (self.dataset['Нейтрофилы (абсолютное значение)(a)'].isna() == False), ('NER1')] =\
+                ((self.dataset['Нейтрофилы (абсолютное значение)(a)']).astype(float)
+                 / self.dataset['Эозинофилы (абсолютное значение)'].astype(float))
+            self.dataset.loc[(self.dataset['Лимфоциты (абсолютное значение)'] != 0.0) &
+                             (self.dataset['Лимфоциты (абсолютное значение)'].isna() == False) &
+                             (self.dataset['Моноциты (абсолютное значение)'].isna() == False), ('MLR1')] =\
+                ((self.dataset['Моноциты (абсолютное значение)']).astype(float)
+                 / self.dataset['Лимфоциты (абсолютное значение)'].astype(float))
+            name = 'SIRI'
+            self.dataset.loc[(self.dataset['Лимфоциты (абсолютное значение)'] != 0.0) &
+                             (self.dataset['Лимфоциты (абсолютное значение)'].isna() == False) &
+                             (self.dataset['Моноциты (абсолютное значение)'].isna() == False), (name)] =(
+                    (self.dataset['Нейтрофилы (абсолютное значение)(a)'].astype(float)
+                     * self.dataset['Моноциты (абсолютное значение)']).astype(float)
+                    / self.dataset['Лимфоциты (абсолютное значение)'].astype(float))
+            name = 'NBR1'
+            self.dataset.loc[:, (name)] = None
+            self.dataset.loc[(self.dataset['Лимфоциты (абсолютное значение)'] != 0.0) &
+                             (self.dataset['Лимфоциты (абсолютное значение)'].isna() == False) &
+                             (self.dataset['Базофилы (абсолютное значение)'].isna() == False), (name)] =(
+                    (self.dataset['Нейтрофилы (абсолютное значение)(a)'].astype(float)
+                     * self.dataset['Моноциты (абсолютное значение)']).astype(float)
+                    / self.dataset['Лимфоциты (абсолютное значение)'].astype(float))
+            self.dataset.loc[:, ('isAFAfter')] = None
+            self.dataset.loc[(self.dataset['ФП b (после чкв)'] == 'да'), ('isAFAfter')] = 1
+            self.dataset.loc[(self.dataset['ФП b (после чкв)'] == 'нет'), ('isAFAfter')] = 0
+            name = 'NLR'
+            name1 = 'Нейтрофилы (абсолютное значение)(a)'
+            name2 = 'Лимфоциты (абсолютное значение)'
+            #self.dataset[name] = np.NaN
+            self.dataset[name] = self.dataset[(name1)] / self.dataset[(name2)]
+            name = 'SII'
+            name1 = 'Тромбоциты'
+            name2 = 'NLR'
+            #self.dataset[name] = np.NaN
+            self.dataset[name] = self.dataset[(name1)] * self.dataset[(name2)]
+            # создаем копию признака
+            self.dataset['RR 600-1200_'] = self.dataset['RR 600-1200']
+            self.dataset['интервал PQ 120-200_'] = self.dataset['интервал PQ 120-200']
+            self.dataset['EOS'] = self.dataset['Эозинофилы (относительное значение)']
+            self.dataset['NEUT'] = self.dataset['Нейтрофилы (относительное значение)']
+
 
     def prepare(self, selected_predictors, output_feature, invert_predictors, scale_data=True):
         """
@@ -38,6 +88,9 @@ class Data:
         data_y = data_x_y[output_feature].to_numpy(dtype=int)
 
         print("Умерших", np.sum(data_y))
+
+        #print(np.min(data_x, axis=0))
+        #print(np.max(data_x, axis=0))
 
         if scale_data:
             scaler = preprocessing.StandardScaler().fit(data_x)

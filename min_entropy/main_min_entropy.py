@@ -142,7 +142,8 @@ class MinEntropy:
 def find_predictors_to_invert(data, predictors):
     # обучаем логистическую регрессию с выделенными признаками,
     #   выбираем признаки с отрицательными весами
-    data.prepare(predictors, "Dead", [])
+    #data.prepare(predictors, "Dead", [])
+    data.prepare(predictors, "isAFAfter", [])
     logist_reg = LogisticRegression()
     logist_reg.fit(data.x, data.y)
     weights = logist_reg.coef_.ravel()
@@ -181,7 +182,7 @@ def print_model(model, data, x_train, y_train, x_test, y_test):
                     tp += 1
                 else:
                     fp += 1
-        print("На обучающей:   TP = ", tp, " FP = ", fp, " Prob = ", tp / (tp + fp))
+        print("На обучающей:   TP = ", tp, " FP = ", fp, " Prob = ", "inf" if tp == 0 and fp == 0 else tp / (tp + fp))
 
         tp = 0
         fp = 0
@@ -191,7 +192,7 @@ def print_model(model, data, x_train, y_train, x_test, y_test):
                     tp += 1
                 else:
                     fp += 1
-        print("На тестовой:   TP = ", tp, " FP = ", fp, " Prob = ", tp / (tp + fp))
+        print("На тестовой:   TP = ", tp, " FP = ", fp, " Prob = ", "inf" if tp == 0 and fp == 0 else tp / (tp + fp))
 
         #cm = ClassificationMetric(data.y, y_pred)
         #print("   Gini = ", cm.gini_index(average=None))
@@ -200,7 +201,7 @@ def print_model(model, data, x_train, y_train, x_test, y_test):
     #print("Интерсепт:", model.intercept)
 
 
-def test_model(model, x_test, y_test, p_threshold):
+def t_model(model, x_test, y_test, p_threshold):
     p = model.predict_proba(x_test)[:, 1]
     auc = sklearn_metrics.roc_auc_score(y_test, p)
     print("AUC:", auc)
@@ -215,15 +216,22 @@ def test_model(model, x_test, y_test, p_threshold):
 
 
 
-data = Data("DataSet.xlsx")
-predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+#data = Data("DataSet.xlsx")
+data = Data("STEMI.xlsx", STEMI=True)
+#predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+              'RR 600-1200', 'интервал PQ 120-200']
 invert_predictors = find_predictors_to_invert(data, predictors)
-data.prepare(predictors, "Dead", invert_predictors)
+print("Inverted:", invert_predictors)
+predictors.append('RR 600-1200_')
+invert_predictors.append('RR 600-1200_')
+#data.prepare(predictors, "Dead", invert_predictors)
+data.prepare(predictors, "isAFAfter", invert_predictors)
 
-threshold = 0.03
+threshold = 0.12  #0.03
 
 num_splits = 1
-random_state = 123
+random_state = 1234  #123
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
@@ -238,11 +246,11 @@ for it in range(1, 1 + num_splits):
     model1 = MinEntropy()
     model1.fit(x_train, y_train, simplified=True)
     print_model(model1, data, x_train, y_train, x_test, y_test)
-    auc1, sen1, spec1 = test_model(model1, x_test, y_test, threshold)
+    auc1, sen1, spec1 = t_model(model1, x_test, y_test, threshold)
 
     model2 = MinEntropy()
     model2.fit(x_train, y_train, simplified=False)
     print_model(model2, data, x_train, y_train, x_test, y_test)
-    auc2, sen2, spec2 = test_model(model2, x_test, y_test, threshold)
+    auc2, sen2, spec2 = t_model(model2, x_test, y_test, threshold)
 
     csvwriter.writerow(map(str, [auc1, sen1, spec1, auc2, sen2, spec2]))

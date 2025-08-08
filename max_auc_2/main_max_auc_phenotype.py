@@ -1,0 +1,159 @@
+import sys
+sys.path.insert(1, '../dichotomization')
+
+from dichotomization.read_data import Data
+from sklearn.linear_model import LogisticRegression
+import csv
+import numpy as np
+from sklearn.model_selection import train_test_split, StratifiedKFold
+import sklearn.metrics as sklearn_metrics
+
+data_file = 'AF'  # 'M'
+
+
+class MaxAUCPhenotypesModel:
+    # Алгоритм:
+    #   Для каждого предиктора делаем фенотип:
+    #      Подбираем первичный порог и настраиваем вторичную модель
+    #      из условия max AUC фенотипа
+
+    # Первичный порог подбирается перебором на сетке
+
+    # Алгоритм настройки вторичной модели:
+    #   Вторичные пороги находятся из условия max AUC классификатора (на части выборки, где первичный ФР = 1)
+    #   Из полученных вторичных ФР выбираются бинарные признаки, дизъюнкция которых, умноженная на первичный ФР,
+    #     обеспечит max AUC фенотипа
+    pass
+
+
+def find_predictors_to_invert(data, predictors):
+    # обучаем логистическую регрессию с выделенными признаками,
+    #   выбираем признаки с отрицательными весами
+    if data_file == 'AF':
+        data.prepare(predictors, "isAFAfter", [])
+    else:
+        data.prepare(predictors, "Dead", [])
+
+    invert_predictors = []
+    for i, feature_name in enumerate(predictors):
+        logist_reg = LogisticRegression()
+        logist_reg.fit(data.x[:, i].reshape(-1, 1), data.y)
+        weight = logist_reg.coef_.ravel()[0]
+        if weight < 0:
+            invert_predictors.append(feature_name)
+
+    return invert_predictors
+
+
+def print_model(model, data, phenotypes=True):
+    print("=" * 10 + "\nМодель")
+    print("Пороги:")
+    for k, feature_name in enumerate(predictors):
+        val = data.get_coord(feature_name, model.cutpoints[k])
+        s = '≤' if feature_name in data.inverted_predictors else '≥'
+        print(feature_name, " ", s, val, sep='')
+    if phenotypes:
+        print("Фенотипы:")
+        for j in range(len(predictors)):
+            if len(model.logistic_pairs_model.phenotypes[j]) == 0:
+                print(predictors[j])
+            else:
+                print(predictors[j], '& (', end='')
+                for k in range(len(model.logistic_pairs_model.phenotypes[j])):
+                    if k > 0:
+                        print(' | ', end='')
+                    print(predictors[model.logistic_pairs_model.phenotypes[j][k]], end='')
+                print(')')
+        print("Веса:", model.logistic_pairs_model.logistic_model.coef_.ravel())
+    else:
+        print("Пары:")
+        k = 0
+        # print(x)
+        num_features = len(predictors)
+        for i in range(num_features):
+            for j in range(i + 1, num_features):
+                print(predictors[i], predictors[j], model.logistic_pairs_model.logistic_model.coef_.ravel()[k])
+                k += 1
+
+
+def t_model(model, x_test, y_test, p_threshold):
+    p = model.predict_proba(x_test)[:, 1]
+    auc = sklearn_metrics.roc_auc_score(y_test, p)
+    print("AUC:", auc)
+    # выводим качество модели
+    y_pred = np.where(p > p_threshold, 1, 0)
+    tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y_test, y_pred).ravel()
+    specificity = tn / (tn + fp)
+    sensitivity = tp / (tp + fn)
+    print("Sens:", sensitivity, "Spec:", specificity)
+    print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)
+    return auc, sensitivity, specificity
+
+
+
+if data_file == 'AF':
+    data = Data("STEMI.xlsx", STEMI=True)
+else:
+    data = Data("DataSet.xlsx")
+if data_file == 'AF':
+    #predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+    #             'RR 600-1200', 'интервал PQ 120-200', 'EOS', 'NEUT']
+    predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+                  'RR 600-1200', 'интервал PQ 120-200']
+else:
+    predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+invert_predictors = find_predictors_to_invert(data, predictors)
+if data_file == 'AF':
+    predictors.append('RR 600-1200_')
+    #invert_predictors.append('RR 600-1200_')
+    predictors.append('интервал PQ 120-200_')
+    invert_predictors.append('интервал PQ 120-200_')
+print("Inverted:", invert_predictors)
+
+if data_file == 'AF':
+    data.prepare(predictors, "isAFAfter", invert_predictors)
+else:
+    data.prepare(predictors, "Dead", invert_predictors)
+
+if data_file == 'AF':
+    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 600, 200, 1200, 120]
+else:
+    normal_thresholds = [0, 80, 3, 115, 50, 0, 1.0, 0.25, 5.6, 115]
+
+min_thresholds = []
+for i, nt in enumerate(normal_thresholds):
+    val_normal = nt
+    if predictors[i] in invert_predictors:
+        val_normal = -val_normal
+    val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
+    min_thresholds.append(val)
+# min_thresholds -- минимально допустимый порог (в преобразованных координатах)
+
+if data_file == 'AF':
+    threshold = 0.12
+else:
+    threshold = 0.03
+
+num_splits = 1
+
+if data_file == 'AF':
+    random_state = 1234
+else:
+    random_state = 123
+
+csvfile = open('splits.csv', 'w', newline='')
+csvwriter = csv.writer(csvfile, delimiter=';')
+csvwriter.writerow(["auc_cv", "sen_cv", "spec_cv", "auc_test", "sen_test", "spec_test"])
+
+for it in range(1, 1 + num_splits):
+    np.random.seed(random_state + it - 1)
+    print("SPLIT #", it, "of", num_splits)
+    x_train, x_test, y_train, y_test = \
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
+
+    model = MaxAUCPhenotypesModel()
+    #auc_cv, sens_cv, spec_cv = model.fit(x_train, y_train)
+    model.fit(x_train, y_train)
+    print_model(model, data)
+    auc_test, sen_test, spec_test = t_model(model, x_test, y_test, threshold)
+

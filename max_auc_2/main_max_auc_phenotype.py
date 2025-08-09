@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import sklearn.metrics as sklearn_metrics
 
-data_file = 'AF'  # 'M'
+data_file = 'M'  # 'AF'
 
 
 class MaxAUCPhenotypesModel:
@@ -23,7 +23,108 @@ class MaxAUCPhenotypesModel:
     #   Вторичные пороги находятся из условия max AUC классификатора (на части выборки, где первичный ФР = 1)
     #   Из полученных вторичных ФР выбираются бинарные признаки, дизъюнкция которых, умноженная на первичный ФР,
     #     обеспечит max AUC фенотипа
-    pass
+
+    def __init__(self):
+        self.logistic_model = None
+        self.primary_thresholds = None
+        self.phenotypes = None  # для каждого предиктора - список пар с этим предиктором, входящих в фенотип
+
+    def get_phenotypes(self, x, a):
+        # x - исходные данные, a - первичные пороги
+        data_size, num_features = x.shape[0], x.shape[1]
+        z = np.zeros((data_size, num_features), dtype=int)
+        for j in range(num_features):
+            if len(self.phenotypes[j]) == 0:
+                z[:, j] = np.where(x[:, j] >= a[j], 1, 0)
+            else:
+                for k in range(len(self.phenotypes[j])):
+                    z[:, j] |= np.where(x[:, self.phenotypes[j][k]['feature']] >= self.phenotypes[j][k]['threshold'], 1, 0)
+                z[:, j] &= np.where(x[:, j] >= a[j], 1, 0)
+        return z
+
+    def fit(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        self.phenotypes = [[] for _ in range(num_features)]
+        for j in range(num_features):
+            # j - номер фенотипа
+            print("Phenotype", j + 1)
+            # перебираем первичный порог на сетке
+            grid = np.linspace(min_thresholds[j], np.max(x[:, j]), 100, endpoint=False)
+            for a_j in grid:
+                y_pred_1 = np.where(x[:, j] >= a_j, 1, 0)
+                #print([v for v in y_pred])
+                try:
+                    auc_1 = sklearn_metrics.roc_auc_score(y, y_pred_1)  # AUC для отдельного ФР
+                except:
+                    # если в выборке представлен только один класс
+                    continue
+                # находим вторичные пороги
+                secondary_thresholds = [None] * num_features
+                for k in range(num_features):
+                    if k == j:
+                        continue
+                    grid2 = np.linspace(min_thresholds[k], np.max(x[:, k]), 100, endpoint=False)
+                    max_auc_2 = 0
+                    best_b_k = None
+                    for b_k in grid2:
+                        y_pred_2 = np.where(x[y_pred_1 == 1, k] >= b_k, 1, 0)
+                        # AUC вторичного ФР после "срабатывания" первичного
+                        try:
+                            auc_2 = sklearn_metrics.roc_auc_score(y[y_pred_1 == 1], y_pred_2)
+                        except:
+                            # если в выборке представлен только один класс
+                            continue
+                        if auc_2 > max_auc_2:
+                            max_auc_2 = auc_2
+                            best_b_k = b_k
+                    secondary_thresholds[k] = best_b_k
+                #print(secondary_thresholds)
+                ok = True
+                for k in range(num_features):
+                    if k != j and secondary_thresholds[k] is None:
+                        ok = False
+                if not ok:
+                    continue
+                # отбираем ФР во вторичную модель
+                current_auc = auc_1  # текущий достигнутый AUC фенотипа
+                cur_y_pred = np.zeros_like(x[:, j], dtype=int)
+
+
+
+            # self.primary_thresholds[j] = ...
+
+            """
+            current_auc = auc_1  # текущий достигнутый AUC фенотипа
+            cur_y_pred = np.zeros_like(x[:, j], dtype=int)
+            while True:
+                max_auc_2 = 0
+                best_k = None
+                for k in range(num_features):
+                    if j == k or k in self.phenotypes[j]:
+                        continue
+                    # пробуем добавить k-й предиктор к фенотипу
+                    new_y_pred = cur_y_pred | (x[:, j] & x[:, k])
+                    # TODO: дальше во внутреннем цикле из пары можно сделать тройку (если AUC тройки выше AUC пары)
+                    auc_2 = sklearn_metrics.roc_auc_score(y, new_y_pred)  # считаем AUC фенотипа
+                    if auc_2 > max_auc_2:
+                        max_auc_2 = auc_2
+                        best_k = k
+                if max_auc_2 > current_auc:
+                    current_auc = max_auc_2
+                    cur_y_pred = cur_y_pred | (x[:, j] & x[:, best_k])
+                    self.phenotypes[j].append(best_k)
+                else:
+                    break
+            """
+
+        z = self.get_phenotypes(x, self.primary_thresholds)
+
+        self.logistic_model = LogisticRegression(max_iter=10000)
+        self.logistic_model.fit(z, y)
+
+    def predict_proba(self, x):
+        z = self.get_phenotypes(x, self.primary_thresholds)
+        return self.logistic_model.predict_proba(z)
 
 
 def find_predictors_to_invert(data, predictors):

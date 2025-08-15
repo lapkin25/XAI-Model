@@ -125,7 +125,7 @@ features =[ 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10' ]
 
 isModel = 1 # 1 - Logistic
 rm = 100
-border = 0.03
+border = 0.04 #0.03
 np.random.seed(rm)
 
 x_all = np.array(df[features], dtype=int)

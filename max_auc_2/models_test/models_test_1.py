@@ -176,7 +176,7 @@ features =[ 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10' ]
 
 isModel = 1 # 1 - Logistic
 rm = 100
-border = 0.03
+border = 0.04   # 0.03
 np.random.seed(rm)
 
 x_all = np.array(df[features], dtype=int)
@@ -239,11 +239,11 @@ for feat in features:
                                                                     random_state=j + 42)
         model = LogisticRegression(solver=solver1, max_iter=max_iter1, C=C1, penalty=penalty1)
         # Настроим метрики для кросс-валидации
-        scoring = {'roc_auc': make_scorer(roc_auc_score, needs_proba=True),
-                   'f1': make_scorer(custom_f1_score, needs_proba=True, threshold=border),
-                   'accuracy': make_scorer(custom_accuracy_score, needs_proba=True, threshold=border),
-                   'sensitivity': make_scorer(custom_recall_score, needs_proba=True, threshold=border),
-                   'specificity': make_scorer(custom_specificity_score, needs_proba=True, threshold=border)
+        scoring = {'roc_auc': make_scorer(roc_auc_score, response_method='predict_proba'),
+                   'f1': make_scorer(custom_f1_score, response_method='predict_proba', threshold=border),
+                   'accuracy': make_scorer(custom_accuracy_score, response_method='predict_proba', threshold=border),
+                   'sensitivity': make_scorer(custom_recall_score, response_method='predict_proba', threshold=border),
+                   'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=border)
                    }
         # Выполним кросс-валидацию с использованием cross_validate
         cv_results = cross_validate(model, x_train, y_train, cv=StratifiedKFold(n_splits=10),
@@ -356,11 +356,11 @@ for j in range(100):
         model = RandomForestClassifier(random_state=j + 42, n_estimators=n_e1, max_depth=m_d1)
 
     # Настроим метрики для кросс-валидации
-    scoring = {'roc_auc': make_scorer(roc_auc_score, needs_proba=True),
-               'f1': make_scorer(custom_f1_score, needs_proba=True, threshold=border),
-               'accuracy': make_scorer(custom_accuracy_score, needs_proba=True, threshold=border),
-               'sensitivity': make_scorer(custom_recall_score, needs_proba=True, threshold=border),
-               'specificity': make_scorer(custom_specificity_score, needs_proba=True, threshold=border)
+    scoring = {'roc_auc': make_scorer(roc_auc_score, response_method='predict_proba'),
+               'f1': make_scorer(custom_f1_score, response_method='predict_proba', threshold=border),
+               'accuracy': make_scorer(custom_accuracy_score, response_method='predict_proba', threshold=border),
+               'sensitivity': make_scorer(custom_recall_score, response_method='predict_proba', threshold=border),
+               'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=border)
                }
 
     # Выполним кросс-валидацию с использованием cross_validate

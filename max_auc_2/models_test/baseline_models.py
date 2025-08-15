@@ -70,9 +70,12 @@ for i, name in enumerate(predictors):
 df.loc[:, 'isAFAfter'] = data.y[:]
 
 
-isModel = 1 # 1 - Logistic
+isModel = 4  # 1 - Logistic
 rm = 100
-border = 0.07
+# border = 0.07    - logistic
+# border = 0.077   - CatBoost
+# border = 0.085   - RandomForest
+border = 0.085
 np.random.seed(rm)
 
 x_all = np.array(df[predictors], dtype=int)
@@ -136,11 +139,11 @@ for j in range(100):
         model = RandomForestClassifier(random_state=j + 42, n_estimators=n_e1, max_depth=m_d1)
 
     # Настроим метрики для кросс-валидации
-    scoring = {'roc_auc': make_scorer(roc_auc_score, needs_proba=True),
-               'f1': make_scorer(custom_f1_score, needs_proba=True, threshold=border),
-               'accuracy': make_scorer(custom_accuracy_score, needs_proba=True, threshold=border),
-               'sensitivity': make_scorer(custom_recall_score, needs_proba=True, threshold=border),
-               'specificity': make_scorer(custom_specificity_score, needs_proba=True, threshold=border)
+    scoring = {'roc_auc': make_scorer(roc_auc_score, response_method='predict_proba'),
+               'f1': make_scorer(custom_f1_score, response_method='predict_proba', threshold=border),
+               'accuracy': make_scorer(custom_accuracy_score, response_method='predict_proba', threshold=border),
+               'sensitivity': make_scorer(custom_recall_score, response_method='predict_proba', threshold=border),
+               'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=border)
                }
 
     # Выполним кросс-валидацию с использованием cross_validate

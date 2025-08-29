@@ -74,7 +74,7 @@ def find_threshold_rect(x_, y_, labels_, min_x, min_y):
     return a, b, max_auc
 
 
-def plot_2d(x1, x1_name, x1_plot_name, x2, x2_name, x2_plot_name, y, a, b, file_name=None):
+def plot_2d(x1, x1_name, x1_plot_name, x2, x2_name, x2_plot_name, y, a, b, file_name=None, file_name_tiff=None):
     min_x1 = np.min(x1)
     min_x2 = np.min(x2)
     max_x1 = np.max(x1)
@@ -107,6 +107,8 @@ def plot_2d(x1, x1_name, x1_plot_name, x2, x2_name, x2_plot_name, y, a, b, file_
     plt.ylabel(x2_plot_name)
     if file_name is not None:
         plt.savefig(file_name, dpi=300)
+    if file_name_tiff is not None:
+        plt.savefig(file_name_tiff, dpi=300)
     plt.show()
 
 
@@ -330,7 +332,8 @@ if data_file == 'AF':
     predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
                   'RR 600-1200', 'интервал PQ 120-200']
     predictors_eng = predictors
-    predictors_rus = predictors
+    predictors_rus = ['Возраст, лет', 'NER', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
+                  'RR', 'интервал PQ']
 else:
     predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
     predictors_eng = ["Age, years", "HR, bpm", "Killip class", "Cr, umol/l", "EF LV, %", "NEUT, %", "EOS, %", "PCT, %", "Glu, mmol/l", "SBP, mmHg"]
@@ -339,6 +342,7 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 if data_file == 'AF':
     predictors.append('RR 600-1200_')
     predictors.append('интервал PQ 120-200_')
+    predictors_rus.append('интервал PQ')
     #invert_predictors.append('RR 600-1200_')
     invert_predictors.append('интервал PQ 120-200_')
 print("Inverted", invert_predictors)
@@ -455,7 +459,8 @@ for it in range(1, 1 + num_splits):
                         file_name="fig_rect/" + predictors[ind1] + "_" + predictors[ind2] + ".png")
                 plot_2d(data.x[:, ind1], predictors[ind1], predictors_rus[ind1],
                         data.x[:, ind2], predictors[ind2], predictors_rus[ind2], data.y[:], a, b,
-                        file_name="fig_rect/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png")
+                        file_name="fig_rect/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png",
+                        file_name_tiff="fig_rect/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.tiff")
             k += 1
 
 

@@ -13,7 +13,7 @@ from sklearn.model_selection import StratifiedKFold
 import statsmodels.api as sm
 
 
-data_file = 'AF'  # 'M'
+data_file = 'M'  #'AF'
 
 
 
@@ -166,7 +166,7 @@ def find_threshold_2d(x1, x2, y, use_centroids=False):
     return Px, Py, Nx / math.sqrt(Nx ** 2 + Ny ** 2), Ny / math.sqrt(Nx ** 2 + Ny ** 2), max_auc
 
 
-def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None):
+def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None, file_name_tiff=None):
     min_x1 = np.min(x1)
     min_x2 = np.min(x2)
     max_x1 = np.max(x1)
@@ -219,6 +219,8 @@ def plot_2d(x1, x1_name, x2, x2_name, y, p1, p2, n1, n2, file_name=None):
     plt.ylabel(x2_name)
     if file_name is not None:
         plt.savefig(file_name, dpi=300)
+    if file_name_tiff is not None:
+        plt.savefig(file_name_tiff, dpi=300)
     plt.show()
 
 
@@ -544,8 +546,9 @@ for it in range(1, 1 + num_splits):
                       "]")
                 plot_2d(data.x[:, ind1], predictors_eng[ind1], data.x[:, ind2], predictors_eng[ind2], data.y[:], px, py, nx, ny,
                         file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + ".png")
-                #plot_2d(data.x[:, ind1], predictors_rus[ind1], data.x[:, ind2], predictors_rus[ind2], data.y[:], px, py, nx, ny,
-                #        file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png")
+                plot_2d(data.x[:, ind1], predictors_rus[ind1], data.x[:, ind2], predictors_rus[ind2], data.y[:], px, py, nx, ny,
+                        file_name="fig/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.png",
+                        file_name_tiff="fig/" + predictors[ind1] + "_" + predictors[ind2] + "_rus.tiff")
             k += 1
 
 

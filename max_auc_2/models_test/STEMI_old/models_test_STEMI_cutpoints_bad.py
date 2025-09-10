@@ -58,7 +58,7 @@ def custom_specificity_score(y_true, proba, threshold=threshold):
 data = Data("STEMI.xlsx", STEMI=True)
 
 predictors = ['Возраст', 'NER1', 'SIRI', 'СОЭ', 'TIMI после', 'СДЛА', 'Killip',
-              'RR 600-1200', 'интервал PQ 120-200', 'NBR1', 'SII', 'EOS', 'NEUT']
+              'RR 600-1200', 'интервал PQ 120-200']
 
 data.prepare(predictors, "isAFAfter", [], scale_data=False)
 
@@ -71,83 +71,74 @@ df.loc[:, 'isAFAfter'] = data.y[:]
 
 
 # Пороги:
-# Возраст ≥65.93737748427554
-# NER1 ≥2387.6009243842545
-# SIRI ≥5.022349948362129
-# СОЭ ≥29.6049917083199
-# TIMI после ≤1.7075872835465769
-# СДЛА ≥22.230746149212216
-# Killip ≥3.0257566769725166
-# RR 600-1200 ≤543.4873416057574
-# интервал PQ 120-200 ≥218.96049246714693
-# RR 600-1200_ ≥1336.2440263241833
+# Возраст ≥59.49105545866723
+# NER1 ≥9994.599296147642
+# SIRI ≥6.950684637390214
+# СОЭ ≥38.22668843702941
+# TIMI после ≤1.85972261100041
+# СДЛА ≥29.300764101754286
+# Killip ≥2.705885623042467
+# RR 600-1200 ≥1284.6563038832926
+# интервал PQ 120-200 ≥210.72298240454194
+# RR 600-1200_ ≤578.563763254501
 
 # Фенотипы:
-# Возраст & (СДЛА)
+# Возраст
 # NER1 & (СОЭ)
 # SIRI
-# СОЭ & (СДЛА)
+# СОЭ
 # TIMI после
-# СДЛА & (Возраст | SIRI | Killip | TIMI после)
-# Killip & (СДЛА)
-# RR 600-1200 & (Возраст | Killip)
-# интервал PQ 120-200 & (SIRI | RR 600-1200)
-# RR 600-1200_ & (Возраст)
+# СДЛА & (Возраст | Killip | СОЭ)
+# Killip
+# RR 600-1200 & (Killip)
+# интервал PQ 120-200 & (Killip | RR 600-1200_)
+# RR 600-1200_ & (Возраст | интервал PQ 120-200)
 
-# Веса: [ 0.34709376 -0.08150446  0.66487236  0.70630475  0.73151799  0.88766336
-#   1.06919782  1.18283922  0.28616948  0.        ]
+df.loc[(df['Возраст'] >= 59.49103), ('F1')] = 1
+df.loc[(df['Возраст'] < 59.49103), ('F1')] = 0
 
+#df.loc[(df['NER1'] >= 9994.5992) & (df['СОЭ'] >= 38.226), ('F2')] = 1
+#df.loc[(df['NER1'] < 9994.5992) | (df['СОЭ'] < 38.226), ('F2')] = 0
 
+df.loc[(df['SIRI'] >= 6.9506), ('F3')] = 1
+df.loc[(df['SIRI'] < 6.9506), ('F3')] = 0
 
-# Возраст & (СДЛА)
-df.loc[(df['Возраст'] >= 65.9373) & ((df['СДЛА'] >= 22.2307)), ('F1')] = 1
-df.loc[(df['Возраст'] < 65.9373) | ((df['СДЛА'] < 22.2307)), ('F1')] = 0
+df.loc[(df['СОЭ'] >= 38.226), ('F4')] = 1
+df.loc[(df['СОЭ'] < 38.226), ('F4')] = 0
 
-# SIRI
-df.loc[(df['SIRI'] >= 5.0223), ('F3')] = 1
-df.loc[(df['SIRI'] < 5.0223), ('F3')] = 0
+df.loc[(df['TIMI после'] <= 1.859), ('F5')] = 1
+df.loc[(df['TIMI после'] > 1.859), ('F5')] = 0
 
-# СОЭ & (СДЛА)
-df.loc[(df['СОЭ'] >= 29.6049) & ((df['СДЛА'] >= 22.2307)), ('F4')] = 1
-df.loc[(df['СОЭ'] < 29.6049) | ((df['СДЛА'] < 22.2307)), ('F4')] = 0
+df.loc[(df['СДЛА'] >= 29.3007) & ((df['Возраст'] >= 59.49103) |
+                                  (df['Killip'] >= 2.7058) |
+                                  (df['СОЭ'] >= 38.226)), ('F6')] = 1
+df.loc[(df['СДЛА'] < 29.3007) | ((df['Возраст'] < 59.49103) &
+                                  (df['Killip'] < 2.7058) &
+                                  (df['СОЭ'] < 38.226)), ('F6')] = 0
 
-# TIMI после
-df.loc[(df['TIMI после'] <= 1.707587), ('F5')] = 1
-df.loc[(df['TIMI после'] > 1.707587), ('F5')] = 0
+df.loc[(df['Killip'] >= 2.7058), ('F7')] = 1
+df.loc[(df['Killip'] < 2.7058), ('F7')] = 0
 
-# СДЛА & (Возраст | SIRI | Killip | TIMI после)
-df.loc[(df['СДЛА'] >= 22.2307) & ((df['Возраст'] >= 65.937) |
-                                  (df['SIRI'] >= 5.0223) |
-                                  (df['Killip'] >= 3.02575) |
-                                  (df['TIMI после'] <= 1.707587)), ('F6')] = 1
-df.loc[(df['СДЛА'] < 22.2307) | ((df['Возраст'] < 65.937) &
-                                  (df['SIRI'] < 5.0223) &
-                                  (df['Killip'] < 3.02575) &
-                                  (df['TIMI после'] > 1.707587)), ('F6')] = 0
+#df.loc[(df['RR 600-1200'] >= 1284.65630) & (df['Killip'] >= 2.7058), ('F8')] = 1
+#df.loc[(df['RR 600-1200'] < 1284.65630) | (df['Killip'] < 2.7058), ('F8')] = 0
 
-# Killip & (СДЛА)
-df.loc[(df['Killip'] >= 3.02575) & ((df['СДЛА'] >= 22.2307)), ('F7')] = 1
-df.loc[(df['Killip'] < 3.02575) | ((df['СДЛА'] < 22.2307)), ('F7')] = 0
+df.loc[(df['интервал PQ 120-200'] >= 210.72) & ((df['Killip'] >= 2.7058) |
+                                                (df['RR 600-1200'] <= 578.5637)), ('F9')] = 1
+df.loc[(df['интервал PQ 120-200'] < 210.72) | ((df['Killip'] < 2.7058) &
+                                                (df['RR 600-1200'] > 578.5637)), ('F9')] = 0
 
-# RR 600-1200 & (Возраст | Killip)
-df.loc[(df['RR 600-1200'] <= 543.48734) & ((df['Возраст'] >= 65.937) |
-                                           (df['Killip'] >= 3.02575)), ('F8')] = 1
-df.loc[(df['RR 600-1200'] > 543.48734) | ((df['Возраст'] < 65.937) &
-                                           (df['Killip'] < 3.02575)), ('F8')] = 0
-
-# интервал PQ 120-200 & (SIRI | RR 600-1200)
-df.loc[(df['интервал PQ 120-200'] >= 218.9604) & ((df['SIRI'] >= 5.0223) |
-                                                  (df['RR 600-1200'] <= 543.48734)), ('F9')] = 1
-df.loc[(df['интервал PQ 120-200'] < 218.9604) | ((df['SIRI'] < 5.0223) &
-                                                  (df['RR 600-1200'] > 543.48734)), ('F9')] = 0
+df.loc[(df['RR 600-1200'] <= 578.5637) & ((df['Возраст'] >= 59.49103) |
+                                          (df['интервал PQ 120-200'] >= 210.72)), ('F10')] = 1
+df.loc[(df['RR 600-1200'] > 578.5637) | ((df['Возраст'] < 59.49103) &
+                                          (df['интервал PQ 120-200'] < 210.72)), ('F10')] = 0
 
 
-features = [ 'F1', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9' ]
+features = [ 'F1', 'F3', 'F4', 'F5', 'F6', 'F7', 'F9', 'F10' ]
 
 
 isModel = 1 # 1 - Logistic
 rm = 100
-border = 0.08  #0.08
+border = 0.075
 np.random.seed(rm)
 
 x_all = np.array(df[features], dtype=int)
@@ -210,11 +201,11 @@ for feat in features:
                                                                     random_state=j + 42)
         model = LogisticRegression(solver=solver1, max_iter=max_iter1, C=C1, penalty=penalty1)
         # Настроим метрики для кросс-валидации
-        scoring = {'roc_auc': make_scorer(roc_auc_score,  response_method='predict_proba'),
-                   'f1': make_scorer(custom_f1_score,  response_method='predict_proba', threshold=border),
-                   'accuracy': make_scorer(custom_accuracy_score,  response_method='predict_proba', threshold=border),
-                   'sensitivity': make_scorer(custom_recall_score,  response_method='predict_proba', threshold=border),
-                   'specificity': make_scorer(custom_specificity_score,  response_method='predict_proba', threshold=border)
+        scoring = {'roc_auc': make_scorer(roc_auc_score, response_method='predict_proba'),
+                   'f1': make_scorer(custom_f1_score, response_method='predict_proba', threshold=border),
+                   'accuracy': make_scorer(custom_accuracy_score, response_method='predict_proba', threshold=border),
+                   'sensitivity': make_scorer(custom_recall_score, response_method='predict_proba', threshold=border),
+                   'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=border)
                    }
         # Выполним кросс-валидацию с использованием cross_validate
         cv_results = cross_validate(model, x_train, y_train, cv=StratifiedKFold(n_splits=10),
@@ -327,11 +318,11 @@ for j in range(100):
         model = RandomForestClassifier(random_state=j + 42, n_estimators=n_e1, max_depth=m_d1)
 
     # Настроим метрики для кросс-валидации
-    scoring = {'roc_auc': make_scorer(roc_auc_score,  response_method='predict_proba'),
-               'f1': make_scorer(custom_f1_score,  response_method='predict_proba', threshold=border),
-               'accuracy': make_scorer(custom_accuracy_score,  response_method='predict_proba', threshold=border),
-               'sensitivity': make_scorer(custom_recall_score,  response_method='predict_proba', threshold=border),
-               'specificity': make_scorer(custom_specificity_score,  response_method='predict_proba', threshold=border)
+    scoring = {'roc_auc': make_scorer(roc_auc_score, response_method='predict_proba'),
+               'f1': make_scorer(custom_f1_score, response_method='predict_proba', threshold=border),
+               'accuracy': make_scorer(custom_accuracy_score, response_method='predict_proba', threshold=border),
+               'sensitivity': make_scorer(custom_recall_score, response_method='predict_proba', threshold=border),
+               'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=border)
                }
 
     # Выполним кросс-валидацию с использованием cross_validate

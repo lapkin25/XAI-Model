@@ -504,10 +504,10 @@ if data_file == 'AF':
 else:
     predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 invert_predictors = find_predictors_to_invert(data, predictors)
-print("Inverted:", invert_predictors)
 if data_file == 'AF':
     predictors.append('RR 600-1200_')
-    #invert_predictors.append('RR 600-1200_')
+    invert_predictors.append('RR 600-1200_')
+print("Inverted:", invert_predictors)
 
 if data_file == 'AF':
     data.prepare(predictors, "isAFAfter", invert_predictors)
@@ -517,7 +517,10 @@ else:
 if data_file == 'AF':
     #normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 0, 500, 2000]
     #normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 600, 200, 1.0, 0.0, 1200]
-    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 600, 200, 1200]
+
+    # normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 600, 200, 1200]
+    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 1200, 200, 600]
+    # Внимательно посмотреть, инвертируется ли RR! (зависит от датасета)
 else:
     normal_thresholds = [0, 80, 3, 115, 50, 0, 1.0, 0.25, 5.6, 115]
 

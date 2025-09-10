@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import sklearn.metrics as sklearn_metrics
 
-data_file = 'M'  # 'AF'
+data_file = 'AF'  # 'M'
 
 
 class MaxAUCPhenotypesModel:
@@ -203,7 +203,7 @@ else:
 invert_predictors = find_predictors_to_invert(data, predictors)
 if data_file == 'AF':
     predictors.append('RR 600-1200_')
-    #invert_predictors.append('RR 600-1200_')
+    invert_predictors.append('RR 600-1200_')
     predictors.append('интервал PQ 120-200_')
     invert_predictors.append('интервал PQ 120-200_')
 print("Inverted:", invert_predictors)
@@ -214,7 +214,8 @@ else:
     data.prepare(predictors, "Dead", invert_predictors)
 
 if data_file == 'AF':
-    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 600, 200, 1200, 120]
+    normal_thresholds = [0, 0, 0, 0, 2.5, 0, 0, 1200, 200, 600, 120]
+    # Внимательно посмотреть, инвертируется ли RR! (зависит от датасета)
 else:
     normal_thresholds = [0, 80, 3, 115, 50, 0, 1.0, 0.25, 5.6, 115]
 

@@ -101,8 +101,8 @@ def plot_2d(x1, x1_name, x1_plot_name, x2, x2_name, x2_plot_name, y, a, b, file_
 
     plt.scatter(val_x1[y == 0], val_x2[y == 0], marker='.', c='blue')  #, alpha=0.5)  #, linewidths=1)
     plt.scatter(val_x1[y == 1], val_x2[y == 1], marker='x', c='red')  #alpha=0.5
-    plt.axline((val_a, val_b), (val_a, max_val_x2), c='green')
-    plt.axline((val_a, val_b), (max_val_x1, val_b), c='green')
+    plt.axline((val_a, val_b), (val_a, max_val_x2 * 1.01), c='green')
+    plt.axline((val_a, val_b), (max_val_x1 * 1.01, val_b), c='green')
     plt.xlabel(x1_plot_name)
     plt.ylabel(x2_plot_name)
     if file_name is not None:
@@ -341,9 +341,10 @@ else:
 invert_predictors = find_predictors_to_invert(data, predictors)
 if data_file == 'AF':
     predictors.append('RR 600-1200_')
+    predictors_rus.append('RR')
     predictors.append('интервал PQ 120-200_')
     predictors_rus.append('интервал PQ')
-    #invert_predictors.append('RR 600-1200_')
+    invert_predictors.append('RR 600-1200_')
     invert_predictors.append('интервал PQ 120-200_')
 print("Inverted", invert_predictors)
 if data_file == 'AF':
@@ -354,7 +355,8 @@ else:
 if data_file == 'AF':
     #normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 0, 500, 2000]
     #normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 600, 200, 1200]
-    normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 600, 200, 1200, 120]
+    normal_thresholds = [0, 0, 0, 0, 2, 0, 0, 1200, 200, 600, 120]
+    # Внимательно посмотреть, инвертируется ли RR! (зависит от датасета)
 else:
     normal_thresholds = [0, 80, 3, 115, 50, 0, 100, 0.25, 5.6, 115]
 #normal_thresholds = [0, 0, 0, 0, 1000, 0, 1000, 0, 0, 1000]

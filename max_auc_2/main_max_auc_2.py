@@ -13,7 +13,7 @@ from sklearn.model_selection import StratifiedKFold
 import statsmodels.api as sm
 
 
-data_file = 'M'  #'AF'
+data_file = 'AF' # 'M'
 
 
 

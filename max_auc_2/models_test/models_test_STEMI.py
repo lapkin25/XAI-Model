@@ -54,6 +54,12 @@ def custom_recall_score(y_true, proba, threshold=threshold):
 def custom_specificity_score(y_true, proba, threshold=threshold):
     return custom_metric(y_true, proba, specificity_score, threshold=threshold)
 
+def save_sample_to_file(arr, file_name):
+    with open(file_name, "w") as file:
+        for x in arr:
+            file.write(str(x) + "\n")
+
+
 
 data = Data("STEMI.xlsx", STEMI=True)
 
@@ -360,6 +366,10 @@ f1_mean, f1_lower, f1_upper = compute_confidence_interval(mean_f1_test)
 acc_mean, acc_lower, acc_upper = compute_confidence_interval(mean_acc_test)
 ppv_mean, ppv_lower, ppv_upper = compute_confidence_interval(mean_ppv_test)
 npv_mean, npv_lower, npv_upper = compute_confidence_interval(mean_npv_test)
+
+
+save_sample_to_file(mean_roc_auc_test, "sample_linear.txt")
+
 
 # Вывод результатов
 # print("---------------------------------------")

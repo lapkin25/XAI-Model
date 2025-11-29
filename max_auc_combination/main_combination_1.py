@@ -182,7 +182,7 @@ class BooleanFunctionMaxAUC:
             #clf = RandomForestClassifier(n_estimators=n_e1, max_depth=m_d1)
             #clf = LogisticRegression()
 
-            # вставить здесь булевский классификатор
+            # TODO: вставить здесь булевский классификатор
             clf = xgb.XGBClassifier(learning_rate=lr, eval_metric="auc", scale_pos_weight=spw,
                                     max_depth=m_d, n_estimators=n_e)
             clf.fit(z, y)
@@ -223,6 +223,7 @@ class BooleanFunctionMaxAUC:
         for v in itertools.product([0, 1], repeat=self.num_features):
             #print(np.array(v).reshape(1, -1))
             y_pred = self.clf.predict(np.array(v).reshape(1, -1))
+            # TODO: сделать clf булевским классификатором!
             print(v, '->', y_pred)
             if y_pred:
                 minterms.append(v)
@@ -327,7 +328,10 @@ def test_model(model, x_test, y_test, p_threshold):
 
 
 data = Data("DataSet.xlsx")
-predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+#predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+
+predictors = ["HR", "Cr", "EF LV", "NEUT", "EOS", "Glu", "Killip class"]
+
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
@@ -344,7 +348,7 @@ csvwriter.writerow(["auc1", "sen1", "spec1", "auc2", "sen2", "spec2"])
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
     x_train, x_test, y_train, y_test = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)   #, random_state=123)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
 
     model1 = BooleanFunctionMaxAUC()
     model1.fit(x_train, y_train)

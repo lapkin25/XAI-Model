@@ -13,12 +13,13 @@ from sklearn.metrics import confusion_matrix
 import sklearn.metrics as sklearn_metrics
 import math
 #from pyDOE import lhs
-from geneticalgorithm import geneticalgorithm as ga
+#from geneticalgorithm import geneticalgorithm as ga
 #from permetrics.classification import ClassificationMetric
 from sklearn.naive_bayes import BernoulliNB
 import itertools
 from sympy.logic import SOPform
 from sympy import symbols
+import pygad
 
 
 class BooleanClassifier:
@@ -243,10 +244,51 @@ class BooleanFunctionMaxAUC:
             def f(c):
                 return -calc_J(c)
 
-            model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound, algorithm_parameters=algorithm_param, convergence_curve=True)#False)
-            model.run()
-            self.cutoffs = model.output_dict['variable']
-            #self.cutoffs = np.array([0.72358296, 2.20297099, 1.20732979, 0.71223686, 0.9679637, 0.55899361, 0.30359288, 5.04075139, 0.70719669, 1.0690253]) # result['variable']
+            def fitness_func(ga_instance, solution, solution_idx):
+                return calc_J(solution)
+
+            num_generations = 100  # Number of generations.
+            num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
+
+            sol_per_pop = 20  # Number of solutions in the population.
+
+            num_genes = num_features
+
+            gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
+
+            def on_generation(ga_instance):
+                pass
+                #print(f"Generation = {ga_instance.generations_completed}")
+                #print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
+
+            ga_instance = pygad.GA(num_generations=num_generations,
+                                   num_parents_mating=num_parents_mating,
+                                   sol_per_pop=sol_per_pop,
+                                   num_genes=num_genes,
+                                   fitness_func=fitness_func,
+                                   on_generation=on_generation,
+                                   gene_space=gene_space)
+
+            # Running the GA to optimize the parameters of the function.
+            ga_instance.run()
+
+            #ga_instance.plot_fitness()
+
+            # Returning the details of the best solution.
+            solution, solution_fitness, solution_idx = ga_instance.best_solution(ga_instance.last_generation_fitness)
+            print(f"Parameters of the best solution : {solution}")
+            print(f"Fitness value of the best solution = {solution_fitness}")
+            print(f"Index of the best solution : {solution_idx}")
+
+
+
+
+            #model = ga(function=f, dimension=num_features, variable_type='real', variable_boundaries=varbound, algorithm_parameters=algorithm_param, convergence_curve=True)#False)
+            #model.run()
+            #self.cutoffs = model.output_dict['variable']
+
+            self.cutoffs = solution
+
             z = np.zeros((data_size, num_features), dtype=int)
             for j in range(num_features):
                 z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
@@ -304,13 +346,14 @@ class BooleanFunctionMaxAUC:
             code = self.clf.bin_code(v)
             if self.clf.N1[code] == 0 and self.clf.N0[code] == 0:
                 dontcares.append(v)
-                print(v, '->', '?')
+                #print(v, '->', '?')
             else:
                 if self.clf.N0[code] == 0 or self.clf.N1[code] / self.clf.N0[code] >= self.clf.total_N1 / self.clf.total_N0:
-                    print(v, '->', 1)
+                    #print(v, '->', 1)
                     minterms.append(v)
                 else:
-                    print(v, '->', 0)
+                    pass
+                    #print(v, '->', 0)
         dnf = SOPform(vars, minterms, dontcares)
         print(dnf)  # вывод сокращенной ДНФ
         conjs = []  # список конъюнктов (список списков имен переменных)
@@ -348,32 +391,6 @@ class BooleanFunctionMaxAUC:
             if t[1] >= triples[num_triples - 1][1]:
                 self.triples.append(list(map(lambda a: predictors1.index(a), t[0])))
         """
-
-    def fit_with_triples(self, x, y):
-        data_size, num_features = x.shape[0], x.shape[1]
-        num_triples = len(self.triples)
-        z = np.zeros((data_size, num_triples), dtype=int)
-        for i in range(data_size):
-            for j in range(num_triples):
-                ind1, ind2, ind3 = self.triples[j]
-                z[i, j] = (x[i, ind1] >= self.cutoffs[ind1]) \
-                    and (x[i, ind2] >= self.cutoffs[ind2]) \
-                    and (x[i, ind3] >= self.cutoffs[ind3])
-        model = LogisticRegression(penalty='l1', solver='liblinear', max_iter=10000)
-        model.fit(z, y)
-        self.triples_logistic_model = model
-
-    def predict_proba_with_triples(self, x):
-        data_size, num_features = x.shape[0], x.shape[1]
-        num_triples = len(self.triples)
-        z = np.zeros((data_size, num_triples), dtype=int)
-        for i in range(data_size):
-            for j in range(num_triples):
-                ind1, ind2, ind3 = self.triples[j]
-                z[i, j] = (x[i, ind1] >= self.cutoffs[ind1]) \
-                    and (x[i, ind2] >= self.cutoffs[ind2]) \
-                    and (x[i, ind3] >= self.cutoffs[ind3])
-        return self.triples_logistic_model.predict_proba(z)
 
 
 def find_predictors_to_invert(data, predictors):

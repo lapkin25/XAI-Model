@@ -421,13 +421,29 @@ data = Data("DataSet.xlsx")
 #predictors = ["Age", "Cr", "EF LV", "NEUT", "EOS"]
 #predictors = ["Killip class", "PCT", "Glu", "SBP", "HR"]
 #predictors = ["Age", "Cr", "EF LV", "NEUT", "EOS", "Killip class", "Glu"]
-predictors = ["Age", "Cr", "EF LV", "Killip class", "Glu"]
+#predictors = ["Age", "Cr", "EF LV", "Killip class", "Glu"]
+
+
+# 1.
+#predictors = ["EOS", "Glu", "HR", "Killip class", "SBP"]
+
+# 2.
+#predictors = ["Age", "Cr", "Killip class", "NEUT", "PCT"]
+
+# 3.
+#predictors = ["Age", "Cr", "EF LV", "EOS", "Glu", "Killip class"]
+
+# 4.
+#predictors = ["Age", "Cr", "EF LV", "HR", "NEUT", "SBP"]
+
+# 5.
+predictors = ["EF LV", "EOS", "HR", "Killip class", "NEUT", "SBP"]
 
 
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
-threshold = 0.025
+threshold = 0.03
 
 num_splits = 1  #10
 random_state = 123

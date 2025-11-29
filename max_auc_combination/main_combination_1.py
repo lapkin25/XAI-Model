@@ -21,6 +21,77 @@ from sympy.logic import SOPform
 from sympy import symbols
 
 
+class BooleanClassifier:
+    def __init__(self):
+        self.N1 = None
+        self.N0 = None
+        self.total_N0 = None
+        self.total_N1 = None
+
+    def bin_code(self, x):
+        """
+        Найти двоичный код кластера
+        """
+        num_features = len(x)
+        ans = 0
+        z = 1
+        for i in range(num_features):
+            ans += z * x[i]
+            z *= 2
+        return ans
+
+    def fit(self, x, y):
+        # TODO: задать частичную булеву функцию и минимизировать ДНФ
+        # minterms = ...
+        # dontcares = ...
+
+        data_size, num_features = x.shape[0], x.shape[1]
+
+        #y_pred = np.zeros_like(y)
+
+
+
+        self.N1 = np.zeros(2 ** num_features, dtype=int)  # число "1" в кластерах
+        self.N0 = np.zeros(2 ** num_features, dtype=int)  # число "0" в кластерах
+        self.total_N1 = np.sum(y)
+        self.total_N0 = data_size - self.total_N1
+        for k in range(data_size):
+            code = self.bin_code(x[k, :])
+            if y[k] == 1:
+                self.N1[code] += 1
+            else:
+                self.N0[code] += 1
+
+        """
+        # рассчитываем AUC
+        s = 0
+        for code in range(2 ** num_features):
+            s += max(total_N0 * N1[code], total_N1 * N0[code])
+        if total_N0 == 0 or total_N1 == 0:
+            auc = 1.0
+        else:
+            auc = s / (2 * total_N0 * total_N1)
+        """
+
+    def predict(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        y_pred = np.zeros(data_size, dtype=int)
+        for k in range(data_size):
+            code = self.bin_code(x[k, :])
+            if self.N1[code] == 0 and self.N0[code] == 0:
+                y_pred[k] = 0  #None
+            elif self.N1[code] == 0:
+                y_pred[k] = 0
+            elif self.N0[code] == 0:
+                y_pred[k] = 1
+            else:  # N1[code] != 0 and N0[code] != 0
+                if self.N1[code] / self.N0[code] >= self.total_N1 / self.total_N0:
+                    y_pred[k] = 1
+                # else:
+                #   y_pred[k] = 0
+        return y_pred
+
+
 class BooleanFunctionMaxAUC:
     def __init__(self):
         self.cutoffs = None  # пороги для каждого предиктора
@@ -63,14 +134,14 @@ class BooleanFunctionMaxAUC:
 
             #y_pred = clf.predict(z)
             #y_pred = clf.predict_proba(z)[:, 1]
-
+            """
             # TODO: вынести в отдельный класс
             y_pred = np.zeros_like(y)
 
             def bin_code(x):
-                """
-                Найти двоичный код кластера
-                """
+                #""
+                #Найти двоичный код кластера
+                #""
                 ans = 0
                 z = 1
                 for i in range(num_features):
@@ -98,13 +169,14 @@ class BooleanFunctionMaxAUC:
                 auc = 1.0
             else:
                 auc = s / (2 * total_N0 * total_N1)
-               
+            """
+            clf = BooleanClassifier()
+            clf.fit(z, y)
+            y_pred = clf.predict(z)
 
-
-            #fpr, tpr, _ = sklearn_metrics.roc_curve(y, y_pred)
-            #return sklearn_metrics.auc(fpr, tpr)
-            
-            return auc
+            fpr, tpr, _ = sklearn_metrics.roc_curve(y, y_pred)
+            return sklearn_metrics.auc(fpr, tpr)
+            #return auc
 
         def calc_J_old(c):
             N1 = np.sum(y)
@@ -183,11 +255,13 @@ class BooleanFunctionMaxAUC:
             #clf = LogisticRegression()
 
             # TODO: вставить здесь булевский классификатор
-            clf = xgb.XGBClassifier(learning_rate=lr, eval_metric="auc", scale_pos_weight=spw,
-                                    max_depth=m_d, n_estimators=n_e)
+            #clf = xgb.XGBClassifier(learning_rate=lr, eval_metric="auc", scale_pos_weight=spw,
+            #                        max_depth=m_d, n_estimators=n_e)
+            clf = BooleanClassifier()
             clf.fit(z, y)
             self.clf = clf
         else:
+            """
             samples = lb + (ub - lb) * lhs(num_features, num_samples)
 
             max_J = 0.0
@@ -201,6 +275,7 @@ class BooleanFunctionMaxAUC:
             print("max_J =", max_J)
             print("best_cutoffs =", best_cutoffs)
             self.cutoffs = best_cutoffs[:]
+            """
 
     def predict(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -219,15 +294,24 @@ class BooleanFunctionMaxAUC:
         predictors1 = list(map(lambda s: "_".join(s.split()), predictors))
         vars = symbols(" ".join(predictors1))
         minterms = []
+        dontcares = []
         print(vars)
         for v in itertools.product([0, 1], repeat=self.num_features):
             #print(np.array(v).reshape(1, -1))
-            y_pred = self.clf.predict(np.array(v).reshape(1, -1))
+            #y_pred = self.clf.predict(np.array(v).reshape(1, -1))
             # TODO: сделать clf булевским классификатором!
-            print(v, '->', y_pred)
-            if y_pred:
-                minterms.append(v)
-        dnf = SOPform(vars, minterms)
+
+            code = self.clf.bin_code(v)
+            if self.clf.N1[code] == 0 and self.clf.N0[code] == 0:
+                dontcares.append(v)
+                print(v, '->', '?')
+            else:
+                if self.clf.N0[code] == 0 or self.clf.N1[code] / self.clf.N0[code] >= self.clf.total_N1 / self.clf.total_N0:
+                    print(v, '->', 1)
+                    minterms.append(v)
+                else:
+                    print(v, '->', 0)
+        dnf = SOPform(vars, minterms, dontcares)
         print(dnf)  # вывод сокращенной ДНФ
         conjs = []  # список конъюнктов (список списков имен переменных)
         for mt in str(dnf).split("|"):
@@ -241,6 +325,8 @@ class BooleanFunctionMaxAUC:
                 conjs.append(v)
         print(conjs)
         print(predictors1)
+
+        """
         triples = []
         for v in itertools.combinations(predictors1, 3):
             #print(v)
@@ -254,13 +340,14 @@ class BooleanFunctionMaxAUC:
         for t in triples:
             print(t[0], t[1])
 
+        
         num_triples = 30
 
         self.triples = []
         for t in triples:
             if t[1] >= triples[num_triples - 1][1]:
                 self.triples.append(list(map(lambda a: predictors1.index(a), t[0])))
-
+        """
 
     def fit_with_triples(self, x, y):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -330,7 +417,8 @@ def test_model(model, x_test, y_test, p_threshold):
 data = Data("DataSet.xlsx")
 #predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 
-predictors = ["HR", "Cr", "EF LV", "NEUT", "EOS", "Glu", "Killip class"]
+#predictors = ["HR", "Cr", "EF LV", "NEUT", "EOS", "Glu"]  #, "Killip class"]
+predictors = ["Age", "Cr", "EF LV", "NEUT", "EOS"]
 
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
@@ -356,6 +444,7 @@ for it in range(1, 1 + num_splits):
     auc1, sen1, spec1 = test_model(model1, x_test, y_test, threshold)
     model1.interpret()
     #print(model1.triples)
+    """
     model1.fit_with_triples(x_train, y_train)
     for i, t in enumerate(model1.triples):
         print(predictors[t[0]], '&', predictors[t[1]], '&', predictors[t[2]], '-> w =', model1.triples_logistic_model.coef_[0][i])
@@ -369,8 +458,9 @@ for it in range(1, 1 + num_splits):
     sensitivity = tp / (tp + fn)
     print("Sens:", sensitivity, "Spec:", specificity)
     print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)
-    auc2 = auc
-    sen2 = sensitivity
-    spec2 = specificity
+    #auc2 = auc
+    #sen2 = sensitivity
+    #spec2 = specificity
+    """
 
-    csvwriter.writerow(map(str, [auc1, sen1, spec1, auc2, sen2, spec2]))
+    #csvwriter.writerow(map(str, [auc1, sen1, spec1, auc2, sen2, spec2]))

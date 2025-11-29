@@ -417,7 +417,12 @@ data = Data("DataSet.xlsx")
 #predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 
 #predictors = ["HR", "Cr", "EF LV", "NEUT", "EOS", "Glu"]  #, "Killip class"]
-predictors = ["Age", "Cr", "EF LV", "NEUT", "EOS"]
+
+#predictors = ["Age", "Cr", "EF LV", "NEUT", "EOS"]
+#predictors = ["Killip class", "PCT", "Glu", "SBP", "HR"]
+#predictors = ["Age", "Cr", "EF LV", "NEUT", "EOS", "Killip class", "Glu"]
+predictors = ["Age", "Cr", "EF LV", "Killip class", "Glu"]
+
 
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)

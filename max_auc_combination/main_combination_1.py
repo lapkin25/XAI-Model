@@ -7,7 +7,7 @@ sys.path.insert(1, '../dichotomization')
 from dichotomization.read_data import Data
 from sklearn.linear_model import LogisticRegression
 import csv
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
 import numpy as np
 from sklearn.metrics import confusion_matrix
 import sklearn.metrics as sklearn_metrics
@@ -20,6 +20,7 @@ import itertools
 from sympy.logic import SOPform
 from sympy import symbols
 import pygad
+import random
 
 
 class BooleanClassifier:
@@ -101,7 +102,7 @@ class BooleanFunctionMaxAUC:
         self.triples = None
 
     # находит оптимальные пороги
-    def fit(self, x, y, use_genetic=True):
+    def fit(self, x, y, use_genetic=True, set_cutoffs=None):
         data_size, num_features = x.shape[0], x.shape[1]
         self.num_features = num_features
         self.cutoffs = np.zeros(num_features)
@@ -110,7 +111,7 @@ class BooleanFunctionMaxAUC:
 
         num_samples = 10000
 
-        np.random.seed(1234)
+        #np.random.seed(1234)
         lb = np.min(x, axis=0)
         ub = np.max(x, axis=0)
 
@@ -228,47 +229,47 @@ class BooleanFunctionMaxAUC:
             return 0.5 * (sens + spec)
 
 
-        if use_genetic:
-            varbound = np.array([[lb[j], ub[j]] for j in range(num_features)])
-            #print(varbound)
+        varbound = np.array([[lb[j], ub[j]] for j in range(num_features)])
+        #print(varbound)
 
-            algorithm_param = {'max_num_iteration': 100,#1000, \
-                               'population_size': 100, \
-                               'mutation_probability': 0.1, \
-                               'elit_ratio': 0.01, \
-                               'crossover_probability': 0.5, \
-                               'parents_portion': 0.3, \
-                               'crossover_type': 'uniform', \
-                               'max_iteration_without_improv': None}
+        algorithm_param = {'max_num_iteration': 100,#1000, \
+                           'population_size': 100, \
+                           'mutation_probability': 0.1, \
+                           'elit_ratio': 0.01, \
+                           'crossover_probability': 0.5, \
+                           'parents_portion': 0.3, \
+                           'crossover_type': 'uniform', \
+                           'max_iteration_without_improv': None}
 
-            def f(c):
-                return -calc_J(c)
+        def f(c):
+            return -calc_J(c)
 
-            def fitness_func(ga_instance, solution, solution_idx):
-                return calc_J(solution)
+        def fitness_func(ga_instance, solution, solution_idx):
+            return calc_J(solution)
 
-            num_generations = 100  # Number of generations.
-            num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
+        num_generations = 100  # Number of generations.
+        num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
 
-            sol_per_pop = 20  # Number of solutions in the population.
+        sol_per_pop = 20  # Number of solutions in the population.
 
-            num_genes = num_features
+        num_genes = num_features
 
-            gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
+        gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
 
-            def on_generation(ga_instance):
-                pass
-                #print(f"Generation = {ga_instance.generations_completed}")
-                #print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
+        def on_generation(ga_instance):
+            pass
+            #print(f"Generation = {ga_instance.generations_completed}")
+            #print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
 
-            ga_instance = pygad.GA(num_generations=num_generations,
-                                   num_parents_mating=num_parents_mating,
-                                   sol_per_pop=sol_per_pop,
-                                   num_genes=num_genes,
-                                   fitness_func=fitness_func,
-                                   on_generation=on_generation,
-                                   gene_space=gene_space)
+        ga_instance = pygad.GA(num_generations=num_generations,
+                               num_parents_mating=num_parents_mating,
+                               sol_per_pop=sol_per_pop,
+                               num_genes=num_genes,
+                               fitness_func=fitness_func,
+                               on_generation=on_generation,
+                               gene_space=gene_space)
 
+        if set_cutoffs is None:
             # Running the GA to optimize the parameters of the function.
             ga_instance.run()
 
@@ -278,7 +279,7 @@ class BooleanFunctionMaxAUC:
             solution, solution_fitness, solution_idx = ga_instance.best_solution(ga_instance.last_generation_fitness)
             print(f"Parameters of the best solution : {solution}")
             print(f"Fitness value of the best solution = {solution_fitness}")
-            print(f"Index of the best solution : {solution_idx}")
+           #print(f"Index of the best solution : {solution_idx}")
 
 
 
@@ -288,36 +289,17 @@ class BooleanFunctionMaxAUC:
             #self.cutoffs = model.output_dict['variable']
 
             self.cutoffs = solution
-
-            z = np.zeros((data_size, num_features), dtype=int)
-            for j in range(num_features):
-                z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
-            #clf = BernoulliNB()
-            #clf = RandomForestClassifier(n_estimators=n_e1, max_depth=m_d1)
-            #clf = LogisticRegression()
-
-            # TODO: вставить здесь булевский классификатор
-            #clf = xgb.XGBClassifier(learning_rate=lr, eval_metric="auc", scale_pos_weight=spw,
-            #                        max_depth=m_d, n_estimators=n_e)
-            clf = BooleanClassifier()
-            clf.fit(z, y)
-            self.clf = clf
         else:
-            """
-            samples = lb + (ub - lb) * lhs(num_features, num_samples)
+            self.cutoffs = set_cutoffs
 
-            max_J = 0.0
-            best_cutoffs = None
-            for si in range(num_samples):
-                J = calc_J(samples[si, :])
-                if J > max_J:
-                    max_J = J
-                    best_cutoffs = samples[si, :]
+        z = np.zeros((data_size, num_features), dtype=int)
+        for j in range(num_features):
+            z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
 
-            print("max_J =", max_J)
-            print("best_cutoffs =", best_cutoffs)
-            self.cutoffs = best_cutoffs[:]
-            """
+        clf = BooleanClassifier()
+        clf.fit(z, y)
+        self.clf = clf
+
 
     def predict(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -337,7 +319,7 @@ class BooleanFunctionMaxAUC:
         vars = symbols(" ".join(predictors1))
         minterms = []
         dontcares = []
-        print(vars)
+        print('Переменные:', vars)
         for v in itertools.product([0, 1], repeat=self.num_features):
             #print(np.array(v).reshape(1, -1))
             #y_pred = self.clf.predict(np.array(v).reshape(1, -1))
@@ -366,8 +348,8 @@ class BooleanFunctionMaxAUC:
             #assert(len(v) >= 5)
             if len(v) <= 5:
                 conjs.append(v)
-        print(conjs)
-        print(predictors1)
+        #print(conjs)
+        #print(predictors1)
 
         """
         triples = []
@@ -440,10 +422,13 @@ predictors = ["Age", "Cr", "EF LV", "NEUT", "EOS"]
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
-threshold = 0.03
+threshold = 0.025
 
 num_splits = 1  #10
 random_state = 123
+
+np.random.seed(random_state)
+random.seed(random_state)
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
@@ -452,14 +437,34 @@ csvwriter.writerow(["auc", "sen", "spec"])
 csvwriter.writerow(["auc1", "sen1", "spec1", "auc2", "sen2", "spec2"])
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
-    x_train, x_test, y_train, y_test = \
+    x_train_all, x_test_all, y_train_all, y_test_all = \
         train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
 
-    model1 = BooleanFunctionMaxAUC()
-    model1.fit(x_train, y_train)
-    print_model(model1, data)
-    auc1, sen1, spec1 = test_model(model1, x_test, y_test, threshold)
-    model1.interpret()
+
+    skf = StratifiedKFold(n_splits=8)
+    all_cutpoints = []
+    #auc_history = []
+    for fold, (train_index, test_index) in enumerate(skf.split(x_train_all, y_train_all)):
+        x_train, x_test = data.x[train_index, :], data.x[test_index, :]
+        y_train, y_test = data.y[train_index], data.y[test_index]
+        print("  Fold", fold + 1)
+
+        model1 = BooleanFunctionMaxAUC()
+        model1.fit(x_train, y_train)
+        print_model(model1, data)
+        all_cutpoints.append(model1.cutoffs)
+
+        test_model(model1, x_test, y_test, threshold)
+        model1.interpret()
+
+    # усредняем найденные пороги
+    cutpoints = np.mean(np.vstack(all_cutpoints), axis=0)
+    avg_model = BooleanFunctionMaxAUC()
+    avg_model.fit(x_train_all, y_train_all, set_cutoffs=cutpoints)
+    print_model(avg_model, data)
+    auc1, sen1, spec1 = test_model(avg_model, x_test_all, y_test_all, threshold)
+    avg_model.interpret()
+
     #print(model1.triples)
     """
     model1.fit_with_triples(x_train, y_train)

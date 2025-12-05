@@ -329,13 +329,18 @@ class BooleanFunctionMaxAUC:
             if self.clf.N1[code] == 0 and self.clf.N0[code] == 0:
                 dontcares.append(v)
                 #print(v, '->', '?')
+            elif self.clf.N1[code] + self.clf.N0[code] <= 20:
+                dontcares.append(v)
             else:
                 if self.clf.N0[code] == 0 or self.clf.N1[code] / self.clf.N0[code] >= self.clf.total_N1 / self.clf.total_N0:
                     #print(v, '->', 1)
+                    #print(self.clf.N1[code], self.clf.N0[code])
                     minterms.append(v)
                 else:
                     pass
                     #print(v, '->', 0)
+        print('dontcares =', dontcares)
+        print('minterms =', minterms)
         dnf = SOPform(vars, minterms, dontcares)
         print(dnf)  # вывод сокращенной ДНФ
         conjs = []  # список конъюнктов (список списков имен переменных)

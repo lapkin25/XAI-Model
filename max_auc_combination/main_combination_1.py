@@ -94,6 +94,70 @@ class BooleanClassifier:
         return y_pred
 
 
+class BooleanClassifierBootstrapped(BooleanClassifier):
+    def fit(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        self.N1 = np.zeros(2 ** num_features, dtype=int)  # число "1" в кластерах
+        self.N0 = np.zeros(2 ** num_features, dtype=int)  # число "0" в кластерах
+        self.total_N1 = np.sum(y)
+        self.total_N0 = data_size - self.total_N1
+
+        # TODO: оптимизировать - сгруппировать по-старому, а не перебирать все точки по-отдельности
+        # сначала считаем обычным способом
+        simple_N1 = np.zeros(2 ** num_features, dtype=int)  # число "1" в кластерах
+        simple_N0 = np.zeros(2 ** num_features, dtype=int)  # число "0" в кластерах
+        for k in range(data_size):
+            code = self.bin_code(x[k, :])
+            if y[k] == 1:
+                simple_N1[code] += 1
+            else:
+                simple_N0[code] += 1
+
+        # потом бутстрэп...
+        FIX_FEATURES = 7
+        for u in itertools.product([0, 1], repeat=num_features):
+            # u - это некоторый двоичный код
+            code_u = self.bin_code(u)
+            if simple_N0[code_u] == 0 and simple_N1[code_u] == 0:
+                continue
+            # выбираем все возможные пятерки предикторов
+            for fixed_indices in itertools.combinations(range(num_features), FIX_FEATURES):
+                # фиксируем эти 5 значений, остальные меняем произвольным образом
+                for v in itertools.product([0, 1], repeat=num_features - FIX_FEATURES):
+                    # формируем двоичный код из фиксированных и не фиксированных индексов
+                    w = np.array(u)
+                    j = 0
+                    for i in range(num_features):
+                        if i not in fixed_indices:
+                            w[i] = v[j]
+                            j += 1
+                    code = self.bin_code(w)
+                    self.N1[code] += simple_N1[code_u]
+                    self.N0[code] += simple_N0[code_u]
+
+        """
+        # ниже - медленный код
+        for k in range(data_size):
+            # выбираем все возможные пятерки предикторов
+            for fixed_indices in itertools.combinations(range(num_features), 5):
+                #print("fixed_indices:", fixed_indices)
+                # фиксируем эти 5 значений, остальные меняем произвольным образом
+                for v in itertools.product([0, 1], repeat=num_features - 5):
+                    # берем k-ю точку и меняем в ней все не фиксированные индексы
+                    new_x = x[k, :]
+                    j = 0
+                    for i in range(num_features):
+                        if i not in fixed_indices:
+                            new_x[i] = v[j]
+                            j += 1
+                    #print("new_x = ", new_x)
+                    code = self.bin_code(new_x)
+                    if y[k] == 1:
+                        self.N1[code] += 1
+                    else:
+                        self.N0[code] += 1
+        """
+
 class BooleanFunctionMaxAUC:
     def __init__(self):
         self.cutoffs = None  # пороги для каждого предиктора
@@ -172,7 +236,8 @@ class BooleanFunctionMaxAUC:
             else:
                 auc = s / (2 * total_N0 * total_N1)
             """
-            clf = BooleanClassifier()
+            #clf = BooleanClassifier()
+            clf = BooleanClassifierBootstrapped()
             clf.fit(z, y)
             y_pred = clf.predict(z)
 
@@ -247,7 +312,7 @@ class BooleanFunctionMaxAUC:
         def fitness_func(ga_instance, solution, solution_idx):
             return calc_J(solution)
 
-        num_generations = 100  # Number of generations.
+        num_generations = 30  #100  # Number of generations.
         num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
 
         sol_per_pop = 20  # Number of solutions in the population.
@@ -257,9 +322,9 @@ class BooleanFunctionMaxAUC:
         gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
 
         def on_generation(ga_instance):
-            pass
-            #print(f"Generation = {ga_instance.generations_completed}")
-            #print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
+            #pass
+            print(f"Generation = {ga_instance.generations_completed}")
+            print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
 
         ga_instance = pygad.GA(num_generations=num_generations,
                                num_parents_mating=num_parents_mating,
@@ -296,7 +361,8 @@ class BooleanFunctionMaxAUC:
         for j in range(num_features):
             z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
 
-        clf = BooleanClassifier()
+        #clf = BooleanClassifier()
+        clf = BooleanClassifierBootstrapped()
         clf.fit(z, y)
         self.clf = clf
 
@@ -442,7 +508,32 @@ data = Data("DataSet.xlsx")
 #predictors = ["Age", "Cr", "EF LV", "HR", "NEUT", "SBP"]
 
 # 5.
-predictors = ["EF LV", "EOS", "HR", "Killip class", "NEUT", "SBP"]
+#predictors = ["EF LV", "EOS", "HR", "Killip class", "NEUT"]#, "SBP"]
+
+#predictors = ["Age", "Cr", "Glu", "HR", "EF LV", "EOS", "NEUT"]  #, "SBP"]
+
+
+
+#new
+
+#predictors = ["Age", "Cr", "Killip class", "NEUT", "PCT"]
+
+#predictors = ["EF LV", "Cr", "EOS", "HR", "SBP", "Glu"]
+
+#predictors = ["EF LV", "EOS", "HR", "Glu"]
+
+#predictors = ["Cr", "EOS", "Age", "Killip class", "NEUT"]
+
+#predictors = ["Age", "Killip class", "Cr", "PCT", "SBP"]
+
+#predictors = ["Glu", "HR", "NEUT", "Age"]
+
+#predictors = ["EF LV", "Glu", "HR"]
+
+#predictors = ["Age", "HR", "Glu", "Cr", "EOS"]
+
+
+predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 
 
 invert_predictors = find_predictors_to_invert(data, predictors)

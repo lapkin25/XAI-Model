@@ -365,8 +365,8 @@ class BooleanFunctionMaxAUC:
         clf = BooleanClassifierBootstrapped()
         clf.fit(z, y)
 
-        for code in range(2 ** num_features):
-            print(code, clf.N1[code], clf.N0[code])
+        #for code in range(2 ** num_features):
+        #    print(code, clf.N1[code], clf.N0[code])
 
         self.clf = clf
 
@@ -399,7 +399,7 @@ class BooleanFunctionMaxAUC:
             if self.clf.N1[code] == 0 and self.clf.N0[code] == 0:
                 dontcares.append(v)
                 #print(v, '->', '?')
-            elif self.clf.N1[code] + self.clf.N0[code] <= 50:  #20:
+            elif self.clf.N1[code] + self.clf.N0[code] <= 200:  #20:
                 dontcares.append(v)
             else:
                 if self.clf.N0[code] == 0 or self.clf.N1[code] / self.clf.N0[code] >= self.clf.total_N1 / self.clf.total_N0:
@@ -562,7 +562,7 @@ for it in range(1, 1 + num_splits):
         train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
 
 
-    skf = StratifiedKFold(n_splits=8)
+    skf = StratifiedKFold(n_splits=5)  #8)
     all_cutpoints = []
     #auc_history = []
     for fold, (train_index, test_index) in enumerate(skf.split(x_train_all, y_train_all)):

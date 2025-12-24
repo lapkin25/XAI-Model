@@ -364,6 +364,10 @@ class BooleanFunctionMaxAUC:
         #clf = BooleanClassifier()
         clf = BooleanClassifierBootstrapped()
         clf.fit(z, y)
+
+        for code in range(2 ** num_features):
+            print(code, clf.N1[code], clf.N0[code])
+
         self.clf = clf
 
 
@@ -395,7 +399,7 @@ class BooleanFunctionMaxAUC:
             if self.clf.N1[code] == 0 and self.clf.N0[code] == 0:
                 dontcares.append(v)
                 #print(v, '->', '?')
-            elif self.clf.N1[code] + self.clf.N0[code] <= 20:
+            elif self.clf.N1[code] + self.clf.N0[code] <= 50:  #20:
                 dontcares.append(v)
             else:
                 if self.clf.N0[code] == 0 or self.clf.N1[code] / self.clf.N0[code] >= self.clf.total_N1 / self.clf.total_N0:

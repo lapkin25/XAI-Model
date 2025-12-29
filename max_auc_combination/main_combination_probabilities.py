@@ -22,10 +22,12 @@ from sympy import symbols
 import pygad
 import random
 
+DEFAULT_PROB = 1e-8
 
 class BinaryProbabilityModel:
     def __init__(self):
         self.prob = None
+        self.num_features = None
 
     def bin_code(self, x):
         """
@@ -41,6 +43,7 @@ class BinaryProbabilityModel:
 
     def fit(self, x, y):
         data_size, num_features = x.shape[0], x.shape[1]
+        self.num_features = num_features
         # считаем точки во всех ортантах...
         N1 = np.zeros(2 ** num_features, dtype=int)  # число "1" в ортантах
         N0 = np.zeros(2 ** num_features, dtype=int)  # число "0" в ортантах
@@ -79,6 +82,8 @@ class BinaryProbabilityModel:
         for code in range(2 ** num_features):
             if sum_N1[code] + sum_N0[code] != 0:  # непонятно, что с этим делать
                 self.prob[code] = sum_N1[code] / (sum_N1[code] + sum_N0[code])
+            else:
+                self.prob[code] = DEFAULT_PROB
 
     def predict_proba(self, x):
         data_size, num_features = x.shape[0], x.shape[1]
@@ -90,7 +95,31 @@ class BinaryProbabilityModel:
 
     # выделить решающие правила
     def interpret(self, threshold):
-        pass
+        predictors1 = list(map(lambda s: "_".join(s.split()), predictors))
+        vars = symbols(" ".join(predictors1))
+        minterms = []
+        dontcares = []
+        print('Переменные:', vars)
+        for v in itertools.product([0, 1], repeat=self.num_features):
+            code = self.bin_code(v)
+            if self.prob[code] == DEFAULT_PROB:
+                dontcares.append(v)
+            if self.prob[code] > threshold:
+                minterms.append(v)
+        print('dontcares =', dontcares)
+        print('minterms =', minterms)
+        dnf = SOPform(vars, minterms, dontcares)
+        print(dnf)  # вывод сокращенной ДНФ
+        conjs = []  # список конъюнктов (список списков имен переменных)
+        for mt in str(dnf).split("|"):
+            v = list(map(lambda s: s.strip(), mt.split("&")))
+            # убираем скобки с начала и с конца
+            v[0] = v[0][1:]
+            v[-1] = v[-1][:-1]
+            # print(v)
+            # assert(len(v) >= 5)
+            if len(v) <= 5:
+                conjs.append(v)
 
 
 class ProbabilityMinEntropyModel:
@@ -213,11 +242,24 @@ data = Data("DataSet.xlsx")
 
 predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 
+set_cutoffs = None
+
+set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.481, 0.24, 6.83, 115]
 
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
-threshold = 0.03
+transformed_cutoffs = []
+for i, nt in enumerate(set_cutoffs):
+    val_normal = nt
+    if predictors[i] in invert_predictors:
+        val_normal = -val_normal
+    val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
+    transformed_cutoffs.append(val)
+set_cutoffs = transformed_cutoffs
+
+
+threshold = 0.05
 
 num_splits = 1  #10
 random_state = 123
@@ -236,27 +278,32 @@ for it in range(1, 1 + num_splits):
         train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
 
 
-    skf = StratifiedKFold(n_splits=5)  #8)
-    all_cutpoints = []
-    #auc_history = []
-    for fold, (train_index, test_index) in enumerate(skf.split(x_train_all, y_train_all)):
-        x_train, x_test = data.x[train_index, :], data.x[test_index, :]
-        y_train, y_test = data.y[train_index], data.y[test_index]
-        print("  Fold", fold + 1)
+    if set_cutoffs is None:
+        skf = StratifiedKFold(n_splits=5)  #8)
+        all_cutpoints = []
+        #auc_history = []
+        for fold, (train_index, test_index) in enumerate(skf.split(x_train_all, y_train_all)):
+            x_train, x_test = data.x[train_index, :], data.x[test_index, :]
+            y_train, y_test = data.y[train_index], data.y[test_index]
+            print("  Fold", fold + 1)
 
-        model1 = ProbabilityMinEntropyModel()
-        model1.fit(x_train, y_train)
-        print_model(model1, data)
-        all_cutpoints.append(model1.cutoffs)
+            model1 = ProbabilityMinEntropyModel()
+            model1.fit(x_train, y_train)
+            print_model(model1, data)
+            all_cutpoints.append(model1.cutoffs)
 
-        t_model(model1, x_test, y_test, threshold)
-        #model1.interpret()
+            t_model(model1, x_test, y_test, threshold)
+            #model1.interpret()
 
-    # усредняем найденные пороги
-    cutpoints = np.mean(np.vstack(all_cutpoints), axis=0)
+    if set_cutoffs is None:
+        # усредняем найденные пороги
+        cutpoints = np.mean(np.vstack(all_cutpoints), axis=0)
+    else:
+        cutpoints = set_cutoffs
     avg_model = ProbabilityMinEntropyModel()
     avg_model.fit(x_train_all, y_train_all, set_cutoffs=cutpoints)
     print_model(avg_model, data)
+    avg_model.clf.interpret(threshold)
     auc1, sen1, spec1 = t_model(avg_model, x_test_all, y_test_all, threshold)
     #avg_model.interpret()
 

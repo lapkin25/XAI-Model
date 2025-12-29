@@ -59,7 +59,7 @@ class BinaryProbabilityModel:
         sum_N1 = np.zeros(2 ** num_features, dtype=int)
         sum_N0 = np.zeros(2 ** num_features, dtype=int)
         self.prob = np.zeros(2 ** num_features)  # оценка вероятности в ортанте
-        FIX_FEATURES = 5  #7
+        FIX_FEATURES = 6  #7
         for u in itertools.product([0, 1], repeat=num_features):
             # u - это некоторый двоичный код
             code_u = self.bin_code(u)
@@ -243,7 +243,7 @@ data = Data("DataSet.xlsx")
 
 predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 
-predictors = ["Age", "Killip class", "Cr", "EF LV", "NEUT"]
+#predictors = ["Age", "Killip class", "Cr", "EF LV", "NEUT"]
 
 """
 threshold = 0.15:
@@ -276,23 +276,23 @@ Glu ≥12.605976001915433
 (Age & NEUT) | (Cr & NEUT) | (Glu & NEUT) | (HR & NEUT) | (Cr & Glu & ~HR) | (Cr & HR & ~Glu) | (Glu & HR & ~Age & ~Cr)
 """
 
-set_cutoffs = None
+#set_cutoffs = None
 
-#set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.481, 0.24, 6.83, 115]
+set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.481, 0.24, 6.83, 115]
 
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
-"""
-transformed_cutoffs = []
-for i, nt in enumerate(set_cutoffs):
-    val_normal = nt
-    if predictors[i] in invert_predictors:
-        val_normal = -val_normal
-    val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
-    transformed_cutoffs.append(val)
-set_cutoffs = transformed_cutoffs
-"""
+if set_cutoffs is not None:
+    transformed_cutoffs = []
+    for i, nt in enumerate(set_cutoffs):
+        val_normal = nt
+        if predictors[i] in invert_predictors:
+            val_normal = -val_normal
+        val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
+        transformed_cutoffs.append(val)
+    set_cutoffs = transformed_cutoffs
+
 
 threshold = 0.05
 

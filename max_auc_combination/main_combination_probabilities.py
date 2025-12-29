@@ -296,7 +296,7 @@ if set_cutoffs is not None:
 
 threshold = 0.05
 
-num_splits = 1  #10
+num_splits = 10
 random_state = 123
 
 np.random.seed(random_state)
@@ -304,13 +304,12 @@ random.seed(random_state)
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
-csvwriter.writerow(["auc", "sen", "spec"])
 
-csvwriter.writerow(["auc1", "sen1", "spec1", "auc2", "sen2", "spec2"])
+csvwriter.writerow(["auc1", "sen1", "spec1"])
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
     x_train_all, x_test_all, y_train_all, y_test_all = \
-        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y, random_state=random_state)  # закомментировать random_state
+        train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=random_state)  # закомментировать random_state
 
 
     if set_cutoffs is None:
@@ -342,4 +341,4 @@ for it in range(1, 1 + num_splits):
     auc1, sen1, spec1 = t_model(avg_model, x_test_all, y_test_all, threshold)
     #avg_model.interpret()
 
-    #csvwriter.writerow(map(str, [auc1, sen1, spec1, auc2, sen2, spec2]))
+    csvwriter.writerow(map(str, [auc1, sen1, spec1]))

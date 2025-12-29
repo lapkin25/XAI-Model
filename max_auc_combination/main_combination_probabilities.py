@@ -59,7 +59,7 @@ class BinaryProbabilityModel:
         sum_N1 = np.zeros(2 ** num_features, dtype=int)
         sum_N0 = np.zeros(2 ** num_features, dtype=int)
         self.prob = np.zeros(2 ** num_features)  # оценка вероятности в ортанте
-        FIX_FEATURES = 7
+        FIX_FEATURES = 5  #7
         for u in itertools.product([0, 1], repeat=num_features):
             # u - это некоторый двоичный код
             code_u = self.bin_code(u)
@@ -106,6 +106,7 @@ class BinaryProbabilityModel:
                 dontcares.append(v)
             if self.prob[code] > threshold:
                 minterms.append(v)
+            #print(v, self.prob[code])
         print('dontcares =', dontcares)
         print('minterms =', minterms)
         dnf = SOPform(vars, minterms, dontcares)
@@ -242,13 +243,47 @@ data = Data("DataSet.xlsx")
 
 predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 
+predictors = ["Age", "Killip class", "Cr", "EF LV", "NEUT"]
+
+"""
+threshold = 0.15:
+    (Age & Cr & EF_LV & Glu & NEUT) | (Age & Cr & EF_LV & Killip_class & NEUT) | (Age & Cr & Glu & HR & NEUT) | (Age & Cr & Glu & Killip_class & NEUT) | (Age & Cr & Glu & NEUT & SBP) | (Cr & EF_LV & EOS & Killip_class & SBP) | (Cr & EF_LV & EOS & NEUT & SBP) | (Cr & EOS & HR & Killip_class & SBP) | (EF_LV & HR & Killip_class & NEUT & SBP) 
+"""
+
+"""
+predictors = ["Age", "Cr", "EF LV", "NEUT", "Glu"]
+Age ≥69.46343099746149
+Cr ≥167.944027130994
+EF LV ≤33.033174188660354
+NEUT ≥75.42117692704959
+Glu ≥7.062776779828779
+EF_LV | (Age & Cr) | (Age & NEUT) | (Cr & Glu) | (Cr & NEUT) | (Glu & NEUT)
+
+predictors = ["Age", "Killip class", "Cr", "EF LV", "NEUT"]
+Age ≥70.57561758066473
+Killip class ≥2.9698577158827306
+Cr ≥154.18287069093304
+EF LV ≤35.37571892147048
+NEUT ≥75.21380169168862
+(Age & NEUT) | (Cr & NEUT) | (EF_LV & NEUT) | (Killip_class & NEUT) | (Age & Cr & ~Killip_class) | (Age & EF_LV & ~Killip_class) | (Age & Killip_class & ~Cr) | (Cr & EF_LV & ~Age) | (Cr & Killip_class & ~Age) | (EF_LV & Killip_class & ~Age)
+
+predictors = ["Age", "HR", "Cr", "NEUT", "Glu"]
+Age ≥68.40573101284396
+HR ≥84.51792574832406
+Cr ≥159.83739760787995
+NEUT ≥74.99352559492017
+Glu ≥12.605976001915433
+(Age & NEUT) | (Cr & NEUT) | (Glu & NEUT) | (HR & NEUT) | (Cr & Glu & ~HR) | (Cr & HR & ~Glu) | (Glu & HR & ~Age & ~Cr)
+"""
+
 set_cutoffs = None
 
-set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.481, 0.24, 6.83, 115]
+#set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.481, 0.24, 6.83, 115]
 
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
+"""
 transformed_cutoffs = []
 for i, nt in enumerate(set_cutoffs):
     val_normal = nt
@@ -257,7 +292,7 @@ for i, nt in enumerate(set_cutoffs):
     val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
     transformed_cutoffs.append(val)
 set_cutoffs = transformed_cutoffs
-
+"""
 
 threshold = 0.05
 

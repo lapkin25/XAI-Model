@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression
 import csv
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import numpy as np
+from sklearn import tree
 from sklearn.metrics import confusion_matrix
 import sklearn.metrics as sklearn_metrics
 import math
@@ -21,6 +22,9 @@ from sympy.logic import SOPform
 from sympy import symbols
 import pygad
 import random
+import matplotlib.pyplot as plt
+from dd.autoref import BDD
+
 
 DEFAULT_PROB = 1e-8
 
@@ -94,7 +98,7 @@ class BinaryProbabilityModel:
         return np.c_[1 - p, p]
 
     # выделить решающие правила
-    def interpret(self, threshold):
+    def interpret(self, threshold, use_bdd=False):
         predictors1 = list(map(lambda s: "_".join(s.split()), predictors))
         vars = symbols(" ".join(predictors1))
         minterms = []
@@ -121,6 +125,43 @@ class BinaryProbabilityModel:
             # assert(len(v) >= 5)
             if len(v) <= 5:
                 conjs.append(v)
+        if use_bdd:
+            bdd = BDD()
+            bdd.configure(reordering=True)
+            #print(predictors1)
+            bdd.declare(*predictors1)
+            v = bdd.add_expr(str(dnf))
+            bdd.collect_garbage()
+            bdd.dump('awesome.pdf')
+
+
+    # построить решающее дерево
+    def interpret_tree(self, threshold):
+        # формируем обучающую выборку: каждая точка соответствует двоичному коду
+        z = np.zeros((2 ** self.num_features, self.num_features), dtype=int)
+        y = np.zeros(2 ** self.num_features, dtype=int)
+        for v in itertools.product([0, 1], repeat=self.num_features):
+            code = self.bin_code(v)
+            z[code, :] = v
+            if self.prob[code] > threshold:
+                y[code] = 1
+        clf = tree.DecisionTreeClassifier()
+        clf.fit(z, y)
+        tree.plot_tree(clf)
+        plt.show()
+
+    def interpret_tree_proba(self):
+        # формируем обучающую выборку: каждая точка соответствует двоичному коду
+        z = np.zeros((2 ** self.num_features, self.num_features), dtype=int)
+        y = np.zeros(2 ** self.num_features)
+        for v in itertools.product([0, 1], repeat=self.num_features):
+            code = self.bin_code(v)
+            z[code, :] = v
+            y[code] = self.prob[code]
+        clf = tree.DecisionTreeRegressor()
+        clf.fit(z, y)
+        tree.plot_tree(clf)
+        plt.show()
 
 
 class ProbabilityMinEntropyModel:
@@ -296,7 +337,7 @@ if set_cutoffs is not None:
 
 threshold = 0.05
 
-num_splits = 10
+num_splits = 1
 random_state = 123
 
 np.random.seed(random_state)
@@ -337,7 +378,9 @@ for it in range(1, 1 + num_splits):
     avg_model = ProbabilityMinEntropyModel()
     avg_model.fit(x_train_all, y_train_all, set_cutoffs=cutpoints)
     print_model(avg_model, data)
-    avg_model.clf.interpret(threshold)
+    avg_model.clf.interpret(threshold, use_bdd=True)
+    #avg_model.clf.interpret_tree(threshold)
+    #avg_model.clf.interpret_tree_proba()
     auc1, sen1, spec1 = t_model(avg_model, x_test_all, y_test_all, threshold)
     #avg_model.interpret()
 

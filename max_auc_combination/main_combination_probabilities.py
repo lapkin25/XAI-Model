@@ -32,6 +32,10 @@ class BinaryProbabilityModel:
     def __init__(self):
         self.prob = None
         self.num_features = None
+        self.N1 = None
+        self.N0 = None
+        self.total_N1 = None
+        self.total_N0 = None
 
     def bin_code(self, x):
         """
@@ -59,6 +63,10 @@ class BinaryProbabilityModel:
                 N1[code] += 1
             else:
                 N0[code] += 1
+        self.N1 = N1
+        self.N0 = N0
+        self.total_N1 = total_N1
+        self.total_N0 = total_N0
         # считаем вероятности, объединяя соседние ортанты...
         sum_N1 = np.zeros(2 ** num_features, dtype=int)
         sum_N0 = np.zeros(2 ** num_features, dtype=int)
@@ -115,16 +123,6 @@ class BinaryProbabilityModel:
         print('minterms =', minterms)
         dnf = SOPform(vars, minterms, dontcares)
         print(dnf)  # вывод сокращенной ДНФ
-        conjs = []  # список конъюнктов (список списков имен переменных)
-        for mt in str(dnf).split("|"):
-            v = list(map(lambda s: s.strip(), mt.split("&")))
-            # убираем скобки с начала и с конца
-            v[0] = v[0][1:]
-            v[-1] = v[-1][:-1]
-            # print(v)
-            # assert(len(v) >= 5)
-            if len(v) <= 5:
-                conjs.append(v)
         if use_bdd:
             bdd = BDD()
             bdd.configure(reordering=True)
@@ -132,8 +130,31 @@ class BinaryProbabilityModel:
             bdd.declare(*predictors1)
             v = bdd.add_expr(str(dnf))
             bdd.collect_garbage()
-            bdd.dump('awesome.pdf')
+            bdd.dump('bdd.pdf')
 
+    def interpret_combinations(self, K):
+        for fixed_indices in itertools.combinations(range(self.num_features), K):
+            sum_N1 = 0
+            sum_N0 = 0
+            for u in itertools.product([0, 1], repeat=self.num_features - K):
+                # формируем двоичный код из фиксированных и не фиксированных индексов
+                w = np.zeros(self.num_features, dtype=int)
+                for ind in fixed_indices:
+                    w[ind] = 1
+                j = 0
+                for i in range(self.num_features):
+                    if i not in fixed_indices:
+                        w[i] = u[j]
+                        j += 1
+                code = self.bin_code(w)
+                sum_N1 += self.N1[code]
+                sum_N0 += self.N0[code]
+            prob = None
+            if sum_N1 + sum_N0 > 0:
+                prob = sum_N1 / (sum_N1 + sum_N0)
+            ones_fraction = sum_N1 / self.total_N1 * 100
+            zeros_fraction = sum_N0 / self.total_N0 * 100
+            print([predictors[ind] for ind in fixed_indices], sum_N1, sum_N0, prob, "; правило покрывает %.1f%% всех единиц, %.1f%% всех нулей" % (ones_fraction, zeros_fraction))
 
     # построить решающее дерево
     def interpret_tree(self, threshold):
@@ -319,7 +340,7 @@ Glu ≥12.605976001915433
 
 #set_cutoffs = None
 
-set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.481, 0.24, 6.83, 115]
+set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.48, 0.24, 6.83, 115]
 
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
@@ -378,10 +399,10 @@ for it in range(1, 1 + num_splits):
     avg_model = ProbabilityMinEntropyModel()
     avg_model.fit(x_train_all, y_train_all, set_cutoffs=cutpoints)
     print_model(avg_model, data)
-    avg_model.clf.interpret(threshold, use_bdd=True)
+    avg_model.clf.interpret(threshold)  #, use_bdd=True)
+    avg_model.clf.interpret_combinations(2)
     #avg_model.clf.interpret_tree(threshold)
     #avg_model.clf.interpret_tree_proba()
     auc1, sen1, spec1 = t_model(avg_model, x_test_all, y_test_all, threshold)
-    #avg_model.interpret()
 
     csvwriter.writerow(map(str, [auc1, sen1, spec1]))

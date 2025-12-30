@@ -133,6 +133,14 @@ class BinaryProbabilityModel:
             bdd.dump('bdd.pdf')
 
     def interpret_combinations(self, K):
+        # сначала считаем, сколько раз каждый отдельный ФР равен 1
+        counters = np.zeros(self.num_features, dtype=int)
+        for u in itertools.product([0, 1], repeat=self.num_features):
+            code = self.bin_code(u)
+            for i in range(self.num_features):
+                if u[i] == 1:
+                    counters[i] += self.N1[code]
+        # теперь перебираем все комбинации из K факторов риска
         for fixed_indices in itertools.combinations(range(self.num_features), K):
             sum_N1 = 0
             sum_N0 = 0
@@ -151,10 +159,17 @@ class BinaryProbabilityModel:
                 sum_N0 += self.N0[code]
             prob = None
             if sum_N1 + sum_N0 > 0:
-                prob = sum_N1 / (sum_N1 + sum_N0)
+                prob = sum_N1 / (sum_N1 + sum_N0) * 100
             ones_fraction = sum_N1 / self.total_N1 * 100
             zeros_fraction = sum_N0 / self.total_N0 * 100
-            print([predictors[ind] for ind in fixed_indices], sum_N1, sum_N0, prob, "; правило покрывает %.1f%% всех единиц, %.1f%% всех нулей" % (ones_fraction, zeros_fraction))
+            # оцениваем через независимую формулу, какая доля единиц попадает в правило
+            independent_estimate = 1.0
+            for i in fixed_indices:
+                independent_estimate *= counters[i] / self.total_N1
+            independent_estimate *= 100
+            print([predictors[ind] for ind in fixed_indices], "в область правила попадает %d единиц, %d нулей; вероятность %.2f%%" % (sum_N1, sum_N0, prob),
+                  "; правило покрывает %.1f%% всех единиц, %.1f%% всех нулей" % (ones_fraction, zeros_fraction),
+                  "[", "оценка доли единиц = %.1f%%" % independent_estimate, "]")
 
     # построить решающее дерево
     def interpret_tree(self, threshold):

@@ -171,6 +171,31 @@ class BinaryProbabilityModel:
                   "; правило покрывает %.1f%% всех единиц, %.1f%% всех нулей" % (ones_fraction, zeros_fraction),
                   "[", "оценка доли единиц = %.1f%%" % independent_estimate, "]")
 
+    # возвращает для заданного наблюдения (двоичного вектора) - вектор Шепли (вклады сработавших факторов риска)
+    def interpret_Shapley(self, x):
+        vec = np.zeros(self.num_features)
+        features_on = [i for i in range(self.num_features) if x[i] == 1]
+        n = len(features_on)
+        for j in features_on:
+            # считаем phi[j]
+            for k in range(n):
+                # весовой множитель
+                fact = math.factorial(k) * math.factorial(n - k - 1) / math.factorial(n)
+                # перечисляем сочетания из n по k, не содержащие j
+                for u in itertools.combinations(features_on, k):
+                    if j in u:
+                        continue
+                    without_j = np.zeros(self.num_features, dtype=int)
+                    with_j = np.zeros(self.num_features, dtype=int)
+                    for ind in u:
+                        without_j[ind] = 1
+                        with_j[ind] = 1
+                    with_j[j] = 1
+                    code_without_j = self.bin_code(without_j)
+                    code_with_j = self.bin_code(with_j)
+                    vec[j] += fact * (self.prob[code_with_j] - self.prob[code_without_j])
+        return vec
+
     # построить решающее дерево
     def interpret_tree(self, threshold):
         # формируем обучающую выборку: каждая точка соответствует двоичному коду
@@ -415,7 +440,23 @@ for it in range(1, 1 + num_splits):
     avg_model.fit(x_train_all, y_train_all, set_cutoffs=cutpoints)
     print_model(avg_model, data)
     avg_model.clf.interpret(threshold)  #, use_bdd=True)
-    avg_model.clf.interpret_combinations(2)
+    #avg_model.clf.interpret_combinations(3)
+
+
+    # аналог объяснений Шепли
+    pred = avg_model.predict_proba(x_train_all)[:, 1]
+    z = np.zeros((x_train_all.shape[0], x_train_all.shape[1]), dtype=int)
+    for j in range(x_train_all.shape[1]):
+        z[:, j] = np.where(x_train_all[:, j] >= avg_model.cutoffs[j], 1, 0)
+    for i in range(x_train_all.shape[0]):
+        vec = avg_model.clf.interpret_Shapley(z[i, :])
+        print("Y = %d, Prob = %.2f" % (y_train_all[i], pred[i]))
+        for j in range(x_train_all.shape[1]):
+            if vec[j] != 0.0:
+                print("  %s [%.3f]" % (predictors[j], vec[j]), end='')
+        print()
+
+
     #avg_model.clf.interpret_tree(threshold)
     #avg_model.clf.interpret_tree_proba()
     auc1, sen1, spec1 = t_model(avg_model, x_test_all, y_test_all, threshold)

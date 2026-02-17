@@ -449,11 +449,16 @@ for it in range(1, 1 + num_splits):
     for j in range(x_train_all.shape[1]):
         z[:, j] = np.where(x_train_all[:, j] >= avg_model.cutoffs[j], 1, 0)
     for i in range(x_train_all.shape[0]):
+        # пропускаем реальные "нули"
+        if y_train_all[i] == 0:
+            continue
+
         vec = avg_model.clf.interpret_Shapley(z[i, :])
-        print("Y = %d, Prob = %.2f" % (y_train_all[i], pred[i]))
+        print("Y = %d, Prob = %.1f%%" % (y_train_all[i], pred[i] * 100))
         for j in range(x_train_all.shape[1]):
             if vec[j] != 0.0:
-                print("  %s [%.3f]" % (predictors[j], vec[j]), end='')
+                print("  %s [%.1f%%]" % (predictors[j], vec[j] * 100), end='')
+        print(" -> Sum = %.1f; Prob - Sum = %.3f " % (np.sum(vec) * 100, pred[i] * 100 - np.sum(vec) * 100))
         print()
 
 

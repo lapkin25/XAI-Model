@@ -457,7 +457,7 @@ for it in range(1, 1 + num_splits):
         print("Y = %d, Prob = %.1f%%" % (y_train_all[i], pred[i] * 100))
         for j in range(x_train_all.shape[1]):
             if vec[j] != 0.0:
-                print("  %s [%.1f%%]" % (predictors[j], vec[j] * 100), end='')
+                print("  %s = %.2f [%.1f%%]" % (predictors[j], data.get_coord(predictors[j], x_train_all[i, j]), vec[j] * 100), end='')
         print(" -> Sum = %.1f; Prob - Sum = %.3f " % (np.sum(vec) * 100, pred[i] * 100 - np.sum(vec) * 100))
         print()
 

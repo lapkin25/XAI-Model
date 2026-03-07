@@ -71,7 +71,7 @@ class BinaryProbabilityModel:
         sum_N1 = np.zeros(2 ** num_features, dtype=int)
         sum_N0 = np.zeros(2 ** num_features, dtype=int)
         self.prob = np.zeros(2 ** num_features)  # оценка вероятности в ортанте
-        FIX_FEATURES = 6  #7
+        FIX_FEATURES = 6 #7
         for u in itertools.product([0, 1], repeat=num_features):
             # u - это некоторый двоичный код
             code_u = self.bin_code(u)
@@ -341,7 +341,7 @@ def t_model(model, x_test, y_test, p_threshold):
 
 
 
-data = Data("DataSet.xlsx")
+data = Data("DataSet_new.xlsx")
 
 predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
 
@@ -384,6 +384,8 @@ set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.48, 0.24, 6.83, 115]
 
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
+
+#print(data.ids)
 
 if set_cutoffs is not None:
     transformed_cutoffs = []
@@ -454,6 +456,7 @@ for it in range(1, 1 + num_splits):
             continue
 
         vec = avg_model.clf.interpret_Shapley(z[i, :])
+        print("Пациент", data.ids[i])
         print("Y = %d, Prob = %.1f%%" % (y_train_all[i], pred[i] * 100))
         for j in range(x_train_all.shape[1]):
             if vec[j] != 0.0:

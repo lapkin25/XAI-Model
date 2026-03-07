@@ -11,6 +11,7 @@ class Data:
         self.predictors = []
         self.output = ""
         self.inverted_predictors = []
+        self.ids = None
         self.x = None
         self.y = None
         self.scaler_mean = None
@@ -101,6 +102,8 @@ class Data:
         else:
             self.x = data_x
             self.y = data_y
+
+        self.ids = self.dataset['ID']
 
     def get_coord(self, feature_name, scaled_val):
         """

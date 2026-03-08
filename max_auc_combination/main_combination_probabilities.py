@@ -641,4 +641,11 @@ for it in range(1, 1 + num_splits):
                     if mean_phi[i, j1] + mean_phi[i, j2] >= threshold:
                         pairs_counter[j1, j2] += 1
         print(pairs_counter)
-
+        # упорядочим все пары по убыванию значений счетчика
+        l = []
+        for j1 in range(data.x.shape[1]):
+            for j2 in range(j1 + 1, data.x.shape[1]):
+                l.append((pairs_counter[j1, j2], predictors[j1], predictors[j2]))
+        l.sort(reverse=True)
+        for v in l:
+            print(v)

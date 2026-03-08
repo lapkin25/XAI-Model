@@ -260,6 +260,8 @@ class ProbabilityMinEntropyModel:
         """
         # для тестирования
         num_generations = 1
+        sol_per_pop = 1
+        num_parents_mating = 1
         """
 
 
@@ -442,6 +444,7 @@ invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
 
+
 """
 # оставим только часть данных - для тестирования
 data.x = data.x[:100, :]
@@ -544,6 +547,57 @@ for it in range(1, 1 + num_splits):
         #print(x_train_all.shape, y_train_all.shape)
         aggregated_model.fit(x_train_all, y_train_all)
         #pred = aggregated_model.predict_proba(x_train_all)[:, 1]
+
+        print("МОДЕЛИ:")
+        for i, model in enumerate(aggregated_model.models):
+            print("\nМодель %d:" % (i + 1))
+            print_model(model, data)
+
+        # Для каждой модели считаем предсказанную вероятность с числами Шепли (на всей выборке?)
+        # Выводим подробную информацию + средняя вероятность + средние числа Шепли
+        all_pred = []
+        all_phi = []
+        all_phi_0 = []
+        for model_ind, model in enumerate(aggregated_model.models):
+            # предсказания вероятности
+            pred = model.predict_proba(data.x)[:, 1]
+            all_pred.append(pred)
+            phi = np.zeros((data.x.shape[0], data.x.shape[1]))
+            phi_0 = np.zeros(data.x.shape[0])
+            z = np.zeros((data.x.shape[0], data.x.shape[1]), dtype=int)
+            for j in range(data.x.shape[1]):
+                z[:, j] = np.where(data.x[:, j] >= model.cutoffs[j], 1, 0)
+            for i in range(data.x.shape[0]):
+                # TODO: потом вывести в таблицу data.y[i] - реальный класс
+                vec = model.clf.interpret_Shapley(z[i, :])
+                phi[i, :] = vec
+                phi_0[i] = pred[i] - np.sum(vec)
+            all_phi.append(phi)
+            all_phi_0.append(phi_0)
+        mean_pred = np.mean(np.vstack(all_pred), axis=0)
+        mean_phi_0 = np.mean(np.vstack(all_phi_0), axis=0)
+        mean_phi = np.mean(all_phi, axis=0)
+
+        print("phi_0 =", all_phi_0)
+        print("mean_phi_0 =", mean_phi_0)
+
+        print()
+        print("Статистика по пациентам")
+        print()
+        for i in range(data.x.shape[0]):
+            if data.y[i] == 0:
+                continue
+            print("Пациент", data.ids[i])
+            print("Y = %d, Prob = %.1f%%" % (data.y[i], mean_pred[i] * 100))
+            for j in range(data.x.shape[1]):
+                print("  %s = %.2f [%.1f%%]" % (predictors[j], data.get_coord(predictors[j], data.x[i, j]), mean_phi[i, j] * 100), end='')
+            print()
+            for k in range(len(aggregated_model.models)):
+                print("   Модель %d => P = %.1f%%;" % (k + 1, all_pred[k][i] * 100), end='')
+                for j in range(data.x.shape[1]):
+                    print("  %s [%.1f%%]" % (predictors[j], all_phi[k][i, j] * 100), end='')
+                print()
+
         auc1, sen1, spec1 = t_model(aggregated_model, x_test_all, y_test_all, threshold)
 
         csvwriter.writerow(map(str, [auc1, sen1, spec1]))

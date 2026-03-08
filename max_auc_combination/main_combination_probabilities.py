@@ -492,7 +492,7 @@ if set_all_cutoffs is not None:
     set_all_cutoffs = transformed_all_cutoffs
 
 
-threshold = 0.04
+threshold = 0.03
 
 num_splits = 1
 random_state = 123
@@ -627,3 +627,18 @@ for it in range(1, 1 + num_splits):
         auc1, sen1, spec1 = t_model(aggregated_model, x_test_all, y_test_all, threshold)
 
         csvwriter.writerow(map(str, [auc1, sen1, spec1]))
+
+        # TODO: глобальные объяснения - для каждой пары предикторов посчитать, у скольких наблюдений сумма соответствующих
+        #   чисел Шепли не меньше порога отсечения
+
+        pairs_counter = np.zeros((data.x.shape[1], data.x.shape[1]), dtype=int)
+        for i in range(data.x.shape[0]):
+            # берем только реальные "1"
+            if data.y[i] == 0:
+                continue
+            for j1 in range(data.x.shape[1]):
+                for j2 in range(j1 + 1, data.x.shape[1]):
+                    if mean_phi[i, j1] + mean_phi[i, j2] >= threshold:
+                        pairs_counter[j1, j2] += 1
+        print(pairs_counter)
+

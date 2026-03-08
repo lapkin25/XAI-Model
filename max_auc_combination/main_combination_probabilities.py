@@ -257,6 +257,12 @@ class ProbabilityMinEntropyModel:
 
         sol_per_pop = 20  # Number of solutions in the population.
 
+        """
+        # для тестирования
+        num_generations = 1
+        """
+
+
         num_genes = num_features
 
         gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
@@ -301,6 +307,36 @@ class ProbabilityMinEntropyModel:
         for j in range(num_features):
             z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
         return self.clf.predict_proba(z)
+
+
+class AggregatedModel:
+    def __init__(self):
+        self.models = []
+
+    def fit(self, x, y):
+        skf = StratifiedKFold(n_splits=5)
+        # auc_history = []
+        # TODO: вывести точность модели на кросс-валидации
+        for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
+            x_train, x_test = x[train_index, :], x[test_index, :]
+            y_train, y_test = y[train_index], y[test_index]
+            print("  Fold", fold + 1)
+
+            model1 = ProbabilityMinEntropyModel()
+            model1.fit(x_train, y_train)
+
+            self.models.append(model1)
+
+    def predict_proba(self, x):
+        models_num = len(self.models)
+        data_size, num_features = x.shape[0], x.shape[1]
+        p_list = []
+        for model in self.models:
+            p1 = model.predict_proba(x)
+            p_list.append(p1[:, 1])
+        p = np.mean(np.vstack(p_list), axis=0)
+        #print(p)
+        return np.c_[1 - p, p]
 
 
 def find_predictors_to_invert(data, predictors):
@@ -380,10 +416,39 @@ Glu ≥12.605976001915433
 
 #set_cutoffs = None
 
-set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.48, 0.24, 6.83, 115]
+#set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.48, 0.24, 6.83, 115]
+
+"""
+На новых данных:
+Модель
+Пороги:
+Age ≥68.4167108422245
+HR ≥82.66553260745121
+Killip class ≥2.9149268036634406
+Cr ≥128.25045963014045
+EF LV ≤47.70503668713291
+NEUT ≥74.46746039457169
+EOS ≤0.53328754140923
+PCT ≥0.3883761527562328
+Glu ≥10.579654694751333
+SBP ≤126.7127359974053
+"""
+
+simplified_aggregation = False
+
+set_cutoffs = [68, 83, 3, 129, 47, 74, 0.53, 0.39, 10.58, 126]
 
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
+
+
+"""
+# оставим только часть данных - для тестирования
+data.x = data.x[:100, :]
+data.y = data.y[:100]
+print(data.x.shape, data.y.shape)
+"""
+
 
 #print(data.ids)
 
@@ -398,7 +463,7 @@ if set_cutoffs is not None:
     set_cutoffs = transformed_cutoffs
 
 
-threshold = 0.05
+threshold = 0.04
 
 num_splits = 1
 random_state = 123
@@ -415,58 +480,69 @@ for it in range(1, 1 + num_splits):
     x_train_all, x_test_all, y_train_all, y_test_all = \
         train_test_split(data.x, data.y, test_size=0.2, stratify=data.y)  #, random_state=random_state)  # закомментировать random_state
 
+    if simplified_aggregation:
+        if set_cutoffs is None:
+            skf = StratifiedKFold(n_splits=5)  #8)
+            all_cutpoints = []
+            #auc_history = []
+            # TODO: вывести точность модели на кросс-валидации
+            for fold, (train_index, test_index) in enumerate(skf.split(x_train_all, y_train_all)):
+                x_train, x_test = data.x[train_index, :], data.x[test_index, :]
+                y_train, y_test = data.y[train_index], data.y[test_index]
+                print("  Fold", fold + 1)
 
-    if set_cutoffs is None:
-        skf = StratifiedKFold(n_splits=5)  #8)
-        all_cutpoints = []
-        #auc_history = []
-        for fold, (train_index, test_index) in enumerate(skf.split(x_train_all, y_train_all)):
-            x_train, x_test = data.x[train_index, :], data.x[test_index, :]
-            y_train, y_test = data.y[train_index], data.y[test_index]
-            print("  Fold", fold + 1)
+                model1 = ProbabilityMinEntropyModel()
+                model1.fit(x_train, y_train)
+                print_model(model1, data)
+                all_cutpoints.append(model1.cutoffs)
 
-            model1 = ProbabilityMinEntropyModel()
-            model1.fit(x_train, y_train)
-            print_model(model1, data)
-            all_cutpoints.append(model1.cutoffs)
+                t_model(model1, x_test, y_test, threshold)
+                #model1.interpret()
 
-            t_model(model1, x_test, y_test, threshold)
-            #model1.interpret()
+        if set_cutoffs is None:
+            # усредняем найденные пороги
+            cutpoints = np.mean(np.vstack(all_cutpoints), axis=0)
+        else:
+            cutpoints = set_cutoffs
 
-    if set_cutoffs is None:
-        # усредняем найденные пороги
-        cutpoints = np.mean(np.vstack(all_cutpoints), axis=0)
-    else:
-        cutpoints = set_cutoffs
-    avg_model = ProbabilityMinEntropyModel()
-    avg_model.fit(x_train_all, y_train_all, set_cutoffs=cutpoints)
-    print_model(avg_model, data)
-    avg_model.clf.interpret(threshold)  #, use_bdd=True)
-    #avg_model.clf.interpret_combinations(3)
+        avg_model = ProbabilityMinEntropyModel()
+        avg_model.fit(x_train_all, y_train_all, set_cutoffs=cutpoints)
+        print_model(avg_model, data)
+        avg_model.clf.interpret(threshold)  #, use_bdd=True)
+        #avg_model.clf.interpret_combinations(3)
 
 
-    # аналог объяснений Шепли
-    pred = avg_model.predict_proba(x_train_all)[:, 1]
-    z = np.zeros((x_train_all.shape[0], x_train_all.shape[1]), dtype=int)
-    for j in range(x_train_all.shape[1]):
-        z[:, j] = np.where(x_train_all[:, j] >= avg_model.cutoffs[j], 1, 0)
-    for i in range(x_train_all.shape[0]):
-        # пропускаем реальные "нули"
-        if y_train_all[i] == 0:
-            continue
-
-        vec = avg_model.clf.interpret_Shapley(z[i, :])
-        print("Пациент", data.ids[i])
-        print("Y = %d, Prob = %.1f%%" % (y_train_all[i], pred[i] * 100))
+        # аналог объяснений Шепли
+        pred = avg_model.predict_proba(x_train_all)[:, 1]
+        z = np.zeros((x_train_all.shape[0], x_train_all.shape[1]), dtype=int)
         for j in range(x_train_all.shape[1]):
-            if vec[j] != 0.0:
-                print("  %s = %.2f [%.1f%%]" % (predictors[j], data.get_coord(predictors[j], x_train_all[i, j]), vec[j] * 100), end='')
-        print(" -> Sum = %.1f; Prob - Sum = %.3f " % (np.sum(vec) * 100, pred[i] * 100 - np.sum(vec) * 100))
-        print()
+            z[:, j] = np.where(x_train_all[:, j] >= avg_model.cutoffs[j], 1, 0)
+        for i in range(x_train_all.shape[0]):
+            # пропускаем реальные "нули"
+            if y_train_all[i] == 0:
+                continue
+
+            vec = avg_model.clf.interpret_Shapley(z[i, :])
+            print("Пациент", data.ids[i])
+            print("Y = %d, Prob = %.1f%%" % (y_train_all[i], pred[i] * 100))
+            for j in range(x_train_all.shape[1]):
+                if vec[j] != 0.0:
+                    print("  %s = %.2f [%.1f%%]" % (predictors[j], data.get_coord(predictors[j], x_train_all[i, j]), vec[j] * 100), end='')
+            print(" -> Sum = %.1f; Prob - Sum = %.3f " % (np.sum(vec) * 100, pred[i] * 100 - np.sum(vec) * 100))
+            print()
 
 
-    #avg_model.clf.interpret_tree(threshold)
-    #avg_model.clf.interpret_tree_proba()
-    auc1, sen1, spec1 = t_model(avg_model, x_test_all, y_test_all, threshold)
+        #avg_model.clf.interpret_tree(threshold)
+        #avg_model.clf.interpret_tree_proba()
+        auc1, sen1, spec1 = t_model(avg_model, x_test_all, y_test_all, threshold)
 
-    csvwriter.writerow(map(str, [auc1, sen1, spec1]))
+        csvwriter.writerow(map(str, [auc1, sen1, spec1]))
+
+    else:  # simplified_aggregation == False
+        aggregated_model = AggregatedModel()
+        #print(x_train_all.shape, y_train_all.shape)
+        aggregated_model.fit(x_train_all, y_train_all)
+        #pred = aggregated_model.predict_proba(x_train_all)[:, 1]
+        auc1, sen1, spec1 = t_model(aggregated_model, x_test_all, y_test_all, threshold)
+
+        csvwriter.writerow(map(str, [auc1, sen1, spec1]))

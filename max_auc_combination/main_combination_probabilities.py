@@ -315,7 +315,7 @@ class AggregatedModel:
     def __init__(self):
         self.models = []
 
-    def fit(self, x, y):
+    def fit(self, x, y, set_all_cutoffs=None):
         skf = StratifiedKFold(n_splits=5)
         # auc_history = []
         # TODO: вывести точность модели на кросс-валидации
@@ -325,7 +325,10 @@ class AggregatedModel:
             print("  Fold", fold + 1)
 
             model1 = ProbabilityMinEntropyModel()
-            model1.fit(x_train, y_train)
+            if set_all_cutoffs is None:
+                model1.fit(x_train, y_train)
+            else:
+                model1.fit(x_train, y_train, set_cutoffs=set_all_cutoffs[fold])
 
             self.models.append(model1)
 
@@ -443,6 +446,16 @@ set_cutoffs = [68, 83, 3, 129, 47, 74, 0.53, 0.39, 10.58, 126]
 invert_predictors = find_predictors_to_invert(data, predictors)
 data.prepare(predictors, "Dead", invert_predictors)
 
+set_all_cutoffs = [[60.974430441762586, 81.43714510034326, 2.9149268036634406, 96.45099908763994, 48.695076216766005,
+                   75.0980117759417, 1.3090322242800854, 0.23939388108101103, 6.689632704202784, 114.9781078659088],
+                   [66.13692832968316, 78.47766971087532, 2.9149268036634406, 108.16382636058083, 51.40655843722995,
+                    79.0397352546504, 0.2309940496156302, 1.494736126513699, 8.70599952999044, 126.60773898390306],
+                   [66.409914050555, 86.64546812977943, 2.9149268036634406, 154.52695043817903, 53.884937316250124,
+                    78.90835631366298, 0.12934343382678182, 0.20411609232285877, 9.746436533407984, 129.00857087409457],
+                   [71.467781842493, 83.7460881987596, 2.9149268036634406, 123.51432709312061, 52.65206212417899,
+                    75.45526685294391, 0.4995557278518177, 0.2849261252096274, 11.18142762773943, 117.12820666794772],
+                   [67.65836078376293, 88.48990910182567, 2.9149268036634406, 163.30844754102156, 47.351081439788516,
+                    77.98504476589562, 0.5877022934324242, 0.21935814178525076, 9.846333421628303, 116.34833582007585]]
 
 
 """
@@ -464,6 +477,19 @@ if set_cutoffs is not None:
         val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
         transformed_cutoffs.append(val)
     set_cutoffs = transformed_cutoffs
+
+if set_all_cutoffs is not None:
+    transformed_all_cutoffs = []
+    for l in set_all_cutoffs:
+        tl = []
+        for i, nt in enumerate(l):
+            val_normal = nt
+            if predictors[i] in invert_predictors:
+                val_normal = -val_normal
+            val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
+            tl.append(val)
+        transformed_all_cutoffs.append(tl)
+    set_all_cutoffs = transformed_all_cutoffs
 
 
 threshold = 0.04
@@ -545,7 +571,7 @@ for it in range(1, 1 + num_splits):
     else:  # simplified_aggregation == False
         aggregated_model = AggregatedModel()
         #print(x_train_all.shape, y_train_all.shape)
-        aggregated_model.fit(x_train_all, y_train_all)
+        aggregated_model.fit(x_train_all, y_train_all, set_all_cutoffs=set_all_cutoffs)
         #pred = aggregated_model.predict_proba(x_train_all)[:, 1]
 
         print("МОДЕЛИ:")

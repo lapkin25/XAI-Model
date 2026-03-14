@@ -314,23 +314,44 @@ class ProbabilityMinEntropyModel:
 class AggregatedModel:
     def __init__(self):
         self.models = []
+        self.cv_auc = None  # AUC на кросс-валидации
+        self.cv_sens = None
+        self.cv_spec = None
 
     def fit(self, x, y, set_all_cutoffs=None):
         skf = StratifiedKFold(n_splits=5)
-        # auc_history = []
-        # TODO: вывести точность модели на кросс-валидации
+        auc_history = []
+        sens_history = []
+        spec_history = []
         for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
             x_train, x_test = x[train_index, :], x[test_index, :]
             y_train, y_test = y[train_index], y[test_index]
             print("  Fold", fold + 1)
 
+            # обучение модели
             model1 = ProbabilityMinEntropyModel()
             if set_all_cutoffs is None:
                 model1.fit(x_train, y_train)
             else:
                 model1.fit(x_train, y_train, set_cutoffs=set_all_cutoffs[fold])
 
+            # вычисление AUC
+            p = model1.predict_proba(x_test)[:, 1]
+            auc = sklearn_metrics.roc_auc_score(y_test, p)
+            auc_history.append(auc)
+            # вычисление Sens, Spec
+            y_pred = np.where(p > threshold, 1, 0)
+            tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y_test, y_pred).ravel()
+            specificity = tn / (tn + fp)
+            sensitivity = tp / (tp + fn)
+            sens_history.append(sensitivity)
+            spec_history.append(specificity)
+
+            # сохранение модели
             self.models.append(model1)
+        self.cv_auc = np.mean(auc_history)
+        self.cv_sens = np.mean(sens_history)
+        self.cv_spec = np.mean(spec_history)
 
     def predict_proba(self, x):
         models_num = len(self.models)
@@ -344,8 +365,18 @@ class AggregatedModel:
         return np.c_[1 - p, p]
 
     # TODO: функция сгенерирует модель ProbabilityMinEntropyModel на основе усреднения порогов
-    def simplified_model(self):
-        pass
+    def simplified_model(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+
+        model = ProbabilityMinEntropyModel()
+        model.cutoffs = np.mean(np.vstack([m.cutoffs for m in self.models]), axis=0)
+        model.clf = BinaryProbabilityModel()
+        z = np.zeros((data_size, num_features), dtype=int)
+        for j in range(num_features):
+            z[:, j] = np.where(x[:, j] >= model.cutoffs[j], 1, 0)
+        model.clf.fit(z, y)
+
+        return model
 
 
 def find_predictors_to_invert(data, predictors):
@@ -511,7 +542,8 @@ random.seed(random_state)
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')
 
-csvwriter.writerow(["auc1", "sen1", "spec1"])
+csvwriter.writerow(["auc_cv", "sen_cv", "spec_cv", "auc_test (agg)", "sen_test (agg)", "spec_test (agg)",
+                    "auc_test (simplif)", "sen_test (simplif)", "spec_test (simplif)"])
 for it in range(1, 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
     x_train_all, x_test_all, y_train_all, y_test_all, indices_train_all, indices_test_all = \
@@ -582,6 +614,16 @@ for it in range(1, 1 + num_splits):
         aggregated_model.fit(x_train_all, y_train_all, set_all_cutoffs=set_all_cutoffs)
         #pred = aggregated_model.predict_proba(x_train_all)[:, 1]
 
+        print(f"Cross validation AUC =", aggregated_model.cv_auc, "\n")
+        cv_auc = aggregated_model.cv_auc
+        cv_sens = aggregated_model.cv_sens
+        cv_spec = aggregated_model.cv_spec
+
+        simplified_model = aggregated_model.simplified_model(x_train_all, y_train_all)
+        print("МОДЕЛЬ С УСРЕДНЕННЫМИ ПОРОГАМИ")
+        print_model(simplified_model, data)
+        auc2, sen2, spec2 = t_model(simplified_model, x_test_all, y_test_all, threshold)
+
         print("МОДЕЛИ:")
         for i, model in enumerate(aggregated_model.models):
             print("\nМодель %d:" % (i + 1))
@@ -634,7 +676,7 @@ for it in range(1, 1 + num_splits):
 
         auc1, sen1, spec1 = t_model(aggregated_model, x_test_all, y_test_all, threshold)
 
-        csvwriter.writerow(map(str, [auc1, sen1, spec1]))
+        csvwriter.writerow(map(str, [cv_auc, cv_sens, cv_spec, auc1, sen1, spec1, auc2, sen2, spec2]))
 
         # TODO: глобальные объяснения - для каждой пары предикторов посчитать, у скольких наблюдений сумма соответствующих
         #   чисел Шепли не меньше порога отсечения

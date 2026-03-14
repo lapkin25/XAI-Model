@@ -544,10 +544,16 @@ csvwriter = csv.writer(csvfile, delimiter=';')
 
 csvwriter.writerow(["auc_cv", "sen_cv", "spec_cv", "auc_test (agg)", "sen_test (agg)", "spec_test (agg)",
                     "auc_test (simplif)", "sen_test (simplif)", "spec_test (simplif)"])
-for it in range(1, 1 + num_splits):
+
+prev_num = 1
+
+for it in range(prev_num + 1, prev_num + 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)
+    np.random.seed(it + 42)
+    random.seed(it + 42)
+
     x_train_all, x_test_all, y_train_all, y_test_all, indices_train_all, indices_test_all = \
-        train_test_split(data.x, data.y, np.arange(len(data.y)), test_size=0.2, stratify=data.y)  #, random_state=random_state)  # закомментировать random_state
+        train_test_split(data.x, data.y, np.arange(len(data.y)), test_size=0.2, stratify=data.y, random_state=it + 42)
 
     if simplified_aggregation:
         if set_cutoffs is None:
@@ -682,20 +688,25 @@ for it in range(1, 1 + num_splits):
         #   чисел Шепли не меньше порога отсечения
 
         pairs_counter = np.zeros((data.x.shape[1], data.x.shape[1]), dtype=int)
+        pairs_counter_zeros = np.zeros((data.x.shape[1], data.x.shape[1]), dtype=int)
         for i in range(data.x.shape[0]):
             # берем только реальные "1"
-            if data.y[i] == 0:
-                continue
+            #if data.y[i] == 0:
+            #    continue
+
             for j1 in range(data.x.shape[1]):
                 for j2 in range(j1 + 1, data.x.shape[1]):
                     if mean_phi[i, j1] + mean_phi[i, j2] >= threshold:
-                        pairs_counter[j1, j2] += 1
-        print(pairs_counter)
+                        if data.y[i] == 1:
+                            pairs_counter[j1, j2] += 1
+                        else:
+                            pairs_counter_zeros[j1, j2] += 1
+        print(pairs_counter, pairs_counter_zeros)
         # упорядочим все пары по убыванию значений счетчика
         l = []
         for j1 in range(data.x.shape[1]):
             for j2 in range(j1 + 1, data.x.shape[1]):
-                l.append((pairs_counter[j1, j2], predictors[j1], predictors[j2]))
+                l.append((pairs_counter[j1, j2], pairs_counter_zeros[j1, j2], predictors[j1], predictors[j2]))
         l.sort(reverse=True)
         for v in l:
             print(v)

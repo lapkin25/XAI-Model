@@ -531,9 +531,9 @@ if set_all_cutoffs is not None:
     set_all_cutoffs = transformed_all_cutoffs
 
 
-threshold = 0.03
+threshold = 0.025
 
-num_splits = 1
+num_splits = 2
 random_state = 123
 
 np.random.seed(random_state)
@@ -545,7 +545,7 @@ csvwriter = csv.writer(csvfile, delimiter=';')
 csvwriter.writerow(["auc_cv", "sen_cv", "spec_cv", "auc_test (agg)", "sen_test (agg)", "spec_test (agg)",
                     "auc_test (simplif)", "sen_test (simplif)", "spec_test (simplif)"])
 
-prev_num = 1
+prev_num = 8
 
 for it in range(prev_num + 1, prev_num + 1 + num_splits):
     print("SPLIT #", it, "of", num_splits)

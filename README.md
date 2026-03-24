@@ -1,5 +1,8 @@
 # XAI-Model
 
+[![](https://zenodo.org/badge/DOI/10.5281/zenodo.19182337.svg)](https://doi.org/10.5281/zenodo.19182337)
+
+
 - Model with dichotomized features: finding the cut-off thresholds and weights
 - Augmentation of model features: adding combinations of features which are binarized
 - Refitting the intercept when weights are fixed

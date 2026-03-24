@@ -1,0 +1,712 @@
+import sys
+
+from sklearn.ensemble import RandomForestClassifier
+import xgboost as xgb
+sys.path.insert(1, '../dichotomization')
+
+from dichotomization.read_data import Data
+from sklearn.linear_model import LogisticRegression
+import csv
+from sklearn.model_selection import train_test_split, StratifiedKFold
+import numpy as np
+from sklearn import tree
+from sklearn.metrics import confusion_matrix
+import sklearn.metrics as sklearn_metrics
+import math
+#from pyDOE import lhs
+#from geneticalgorithm import geneticalgorithm as ga
+#from permetrics.classification import ClassificationMetric
+from sklearn.naive_bayes import BernoulliNB
+import itertools
+from sympy.logic import SOPform
+from sympy import symbols
+import pygad
+import random
+import matplotlib.pyplot as plt
+from dd.autoref import BDD
+
+
+DEFAULT_PROB = 1e-8
+
+class BinaryProbabilityModel:
+    def __init__(self):
+        self.prob = None
+        self.num_features = None
+        self.N1 = None
+        self.N0 = None
+        self.total_N1 = None
+        self.total_N0 = None
+
+    def bin_code(self, x):
+        """
+        Найти двоичный код ортанта
+        """
+        num_features = len(x)
+        ans = 0
+        z = 1
+        for i in range(num_features):
+            ans += z * x[i]
+            z *= 2
+        return ans
+
+    def fit(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+        self.num_features = num_features
+        # считаем точки во всех ортантах...
+        N1 = np.zeros(2 ** num_features, dtype=int)  # число "1" в ортантах
+        N0 = np.zeros(2 ** num_features, dtype=int)  # число "0" в ортантах
+        total_N1 = np.sum(y)
+        total_N0 = data_size - total_N1
+        for k in range(data_size):
+            code = self.bin_code(x[k, :])
+            if y[k] == 1:
+                N1[code] += 1
+            else:
+                N0[code] += 1
+        self.N1 = N1
+        self.N0 = N0
+        self.total_N1 = total_N1
+        self.total_N0 = total_N0
+        # считаем вероятности, объединяя соседние ортанты...
+        sum_N1 = np.zeros(2 ** num_features, dtype=int)
+        sum_N0 = np.zeros(2 ** num_features, dtype=int)
+        self.prob = np.zeros(2 ** num_features)  # оценка вероятности в ортанте
+        FIX_FEATURES = 6 #7
+        for u in itertools.product([0, 1], repeat=num_features):
+            # u - это некоторый двоичный код
+            code_u = self.bin_code(u)
+            if N0[code_u] == 0 and N1[code_u] == 0:
+                continue
+            # выбираем все возможные семерки предикторов
+            for fixed_indices in itertools.combinations(range(num_features), FIX_FEATURES):
+                # фиксируем эти 7 значений, остальные меняем произвольным образом
+                for v in itertools.product([0, 1], repeat=num_features - FIX_FEATURES):
+                    # формируем двоичный код из фиксированных и не фиксированных индексов
+                    w = np.array(u)
+                    j = 0
+                    for i in range(num_features):
+                        if i not in fixed_indices:
+                            w[i] = v[j]
+                            j += 1
+                    code = self.bin_code(w)
+                    sum_N1[code] += N1[code_u]
+                    sum_N0[code] += N0[code_u]
+        for code in range(2 ** num_features):
+            if sum_N1[code] + sum_N0[code] != 0:  # непонятно, что с этим делать
+                self.prob[code] = sum_N1[code] / (sum_N1[code] + sum_N0[code])
+            else:
+                self.prob[code] = DEFAULT_PROB
+
+    def predict_proba(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        p = np.zeros(data_size)
+        for k in range(data_size):
+            code = self.bin_code(x[k, :])
+            p[k] = self.prob[code]
+        return np.c_[1 - p, p]
+
+    # выделить решающие правила
+    def interpret(self, threshold, use_bdd=False):
+        predictors1 = list(map(lambda s: "_".join(s.split()), predictors))
+        vars = symbols(" ".join(predictors1))
+        minterms = []
+        dontcares = []
+        print('Переменные:', vars)
+        for v in itertools.product([0, 1], repeat=self.num_features):
+            code = self.bin_code(v)
+            if self.prob[code] == DEFAULT_PROB:
+                dontcares.append(v)
+            if self.prob[code] > threshold:
+                minterms.append(v)
+            #print(v, self.prob[code])
+        print('dontcares =', dontcares)
+        print('minterms =', minterms)
+        dnf = SOPform(vars, minterms, dontcares)
+        print(dnf)  # вывод сокращенной ДНФ
+        if use_bdd:
+            bdd = BDD()
+            bdd.configure(reordering=True)
+            #print(predictors1)
+            bdd.declare(*predictors1)
+            v = bdd.add_expr(str(dnf))
+            bdd.collect_garbage()
+            bdd.dump('bdd.pdf')
+
+    def interpret_combinations(self, K):
+        # сначала считаем, сколько раз каждый отдельный ФР равен 1
+        counters = np.zeros(self.num_features, dtype=int)
+        for u in itertools.product([0, 1], repeat=self.num_features):
+            code = self.bin_code(u)
+            for i in range(self.num_features):
+                if u[i] == 1:
+                    counters[i] += self.N1[code]
+        # теперь перебираем все комбинации из K факторов риска
+        for fixed_indices in itertools.combinations(range(self.num_features), K):
+            sum_N1 = 0
+            sum_N0 = 0
+            for u in itertools.product([0, 1], repeat=self.num_features - K):
+                # формируем двоичный код из фиксированных и не фиксированных индексов
+                w = np.zeros(self.num_features, dtype=int)
+                for ind in fixed_indices:
+                    w[ind] = 1
+                j = 0
+                for i in range(self.num_features):
+                    if i not in fixed_indices:
+                        w[i] = u[j]
+                        j += 1
+                code = self.bin_code(w)
+                sum_N1 += self.N1[code]
+                sum_N0 += self.N0[code]
+            prob = None
+            if sum_N1 + sum_N0 > 0:
+                prob = sum_N1 / (sum_N1 + sum_N0) * 100
+            ones_fraction = sum_N1 / self.total_N1 * 100
+            zeros_fraction = sum_N0 / self.total_N0 * 100
+            # оцениваем через независимую формулу, какая доля единиц попадает в правило
+            independent_estimate = 1.0
+            for i in fixed_indices:
+                independent_estimate *= counters[i] / self.total_N1
+            independent_estimate *= 100
+            print([predictors[ind] for ind in fixed_indices], "в область правила попадает %d единиц, %d нулей; вероятность %.2f%%" % (sum_N1, sum_N0, prob),
+                  "; правило покрывает %.1f%% всех единиц, %.1f%% всех нулей" % (ones_fraction, zeros_fraction),
+                  "[", "оценка доли единиц = %.1f%%" % independent_estimate, "]")
+
+    # возвращает для заданного наблюдения (двоичного вектора) - вектор Шепли (вклады сработавших факторов риска)
+    def interpret_Shapley(self, x):
+        vec = np.zeros(self.num_features)
+        features_on = [i for i in range(self.num_features) if x[i] == 1]
+        n = len(features_on)
+        for j in features_on:
+            # считаем phi[j]
+            for k in range(n):
+                # весовой множитель
+                fact = math.factorial(k) * math.factorial(n - k - 1) / math.factorial(n)
+                # перечисляем сочетания из n по k, не содержащие j
+                for u in itertools.combinations(features_on, k):
+                    if j in u:
+                        continue
+                    without_j = np.zeros(self.num_features, dtype=int)
+                    with_j = np.zeros(self.num_features, dtype=int)
+                    for ind in u:
+                        without_j[ind] = 1
+                        with_j[ind] = 1
+                    with_j[j] = 1
+                    code_without_j = self.bin_code(without_j)
+                    code_with_j = self.bin_code(with_j)
+                    vec[j] += fact * (self.prob[code_with_j] - self.prob[code_without_j])
+        return vec
+
+    # построить решающее дерево
+    def interpret_tree(self, threshold):
+        # формируем обучающую выборку: каждая точка соответствует двоичному коду
+        z = np.zeros((2 ** self.num_features, self.num_features), dtype=int)
+        y = np.zeros(2 ** self.num_features, dtype=int)
+        for v in itertools.product([0, 1], repeat=self.num_features):
+            code = self.bin_code(v)
+            z[code, :] = v
+            if self.prob[code] > threshold:
+                y[code] = 1
+        clf = tree.DecisionTreeClassifier()
+        clf.fit(z, y)
+        tree.plot_tree(clf)
+        plt.show()
+
+    def interpret_tree_proba(self):
+        # формируем обучающую выборку: каждая точка соответствует двоичному коду
+        z = np.zeros((2 ** self.num_features, self.num_features), dtype=int)
+        y = np.zeros(2 ** self.num_features)
+        for v in itertools.product([0, 1], repeat=self.num_features):
+            code = self.bin_code(v)
+            z[code, :] = v
+            y[code] = self.prob[code]
+        clf = tree.DecisionTreeRegressor()
+        clf.fit(z, y)
+        tree.plot_tree(clf)
+        plt.show()
+
+
+class ProbabilityMinEntropyModel:
+    def __init__(self):
+        self.cutoffs = None  # пороги для каждого предиктора
+        self.clf = None
+
+    # находит оптимальные пороги
+    def fit(self, x, y, set_cutoffs=None):
+        data_size, num_features = x.shape[0], x.shape[1]
+        self.num_features = num_features
+        self.cutoffs = np.zeros(num_features)
+
+        lb = np.min(x, axis=0)
+        ub = np.max(x, axis=0)
+
+        def calc_J(c):
+            z = np.zeros((data_size, num_features), dtype=int)
+            for j in range(num_features):
+                z[:, j] = np.where(x[:, j] >= c[j], 1, 0)
+            clf = BinaryProbabilityModel()
+            clf.fit(z, y)
+            yp = clf.predict_proba(z)
+            return sklearn_metrics.log_loss(y, yp)
+
+        def fitness_func(ga_instance, solution, solution_idx):
+            log_loss = calc_J(solution)
+            return -log_loss
+
+        num_generations = 30  #100  # Number of generations.
+        num_parents_mating = 10  # Number of solutions to be selected as parents in the mating pool.
+
+        sol_per_pop = 20  # Number of solutions in the population.
+
+        """
+        # для тестирования
+        num_generations = 1
+        sol_per_pop = 1
+        num_parents_mating = 1
+        """
+
+
+        num_genes = num_features
+
+        gene_space = [{'low': lb[j], 'high': ub[j]} if predictors[j] != "Killip class" else [1.6] for j in range(num_features)]
+
+        def on_generation(ga_instance):
+            print(f"Generation = {ga_instance.generations_completed}")
+            print(f"Fitness    = {ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[1]}")
+
+        ga_instance = pygad.GA(num_generations=num_generations,
+                               num_parents_mating=num_parents_mating,
+                               sol_per_pop=sol_per_pop,
+                               num_genes=num_genes,
+                               fitness_func=fitness_func,
+                               on_generation=on_generation,
+                               gene_space=gene_space)
+
+        if set_cutoffs is None:
+            # Running the GA to optimize the parameters of the function.
+            ga_instance.run()
+
+            #ga_instance.plot_fitness()
+
+            # Returning the details of the best solution.
+            solution, solution_fitness, solution_idx = ga_instance.best_solution(ga_instance.last_generation_fitness)
+            print(f"Parameters of the best solution : {solution}")
+            print(f"Fitness value of the best solution = {solution_fitness}")
+
+            self.cutoffs = solution
+        else:
+            self.cutoffs = set_cutoffs
+
+        z = np.zeros((data_size, num_features), dtype=int)
+        for j in range(num_features):
+            z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
+        clf = BinaryProbabilityModel()
+        clf.fit(z, y)
+        self.clf = clf
+
+    def predict_proba(self, x):
+        data_size, num_features = x.shape[0], x.shape[1]
+        z = np.zeros((data_size, num_features), dtype=int)
+        for j in range(num_features):
+            z[:, j] = np.where(x[:, j] >= self.cutoffs[j], 1, 0)
+        return self.clf.predict_proba(z)
+
+
+class AggregatedModel:
+    def __init__(self):
+        self.models = []
+        self.cv_auc = None  # AUC на кросс-валидации
+        self.cv_sens = None
+        self.cv_spec = None
+
+    def fit(self, x, y, set_all_cutoffs=None):
+        skf = StratifiedKFold(n_splits=5)
+        auc_history = []
+        sens_history = []
+        spec_history = []
+        for fold, (train_index, test_index) in enumerate(skf.split(x, y)):
+            x_train, x_test = x[train_index, :], x[test_index, :]
+            y_train, y_test = y[train_index], y[test_index]
+            print("  Fold", fold + 1)
+
+            # обучение модели
+            model1 = ProbabilityMinEntropyModel()
+            if set_all_cutoffs is None:
+                model1.fit(x_train, y_train)
+            else:
+                model1.fit(x_train, y_train, set_cutoffs=set_all_cutoffs[fold])
+
+            # вычисление AUC
+            p = model1.predict_proba(x_test)[:, 1]
+            auc = sklearn_metrics.roc_auc_score(y_test, p)
+            auc_history.append(auc)
+            # вычисление Sens, Spec
+            y_pred = np.where(p > threshold, 1, 0)
+            tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y_test, y_pred).ravel()
+            specificity = tn / (tn + fp)
+            sensitivity = tp / (tp + fn)
+            sens_history.append(sensitivity)
+            spec_history.append(specificity)
+
+            # сохранение модели
+            self.models.append(model1)
+        self.cv_auc = np.mean(auc_history)
+        self.cv_sens = np.mean(sens_history)
+        self.cv_spec = np.mean(spec_history)
+
+    def predict_proba(self, x):
+        models_num = len(self.models)
+        data_size, num_features = x.shape[0], x.shape[1]
+        p_list = []
+        for model in self.models:
+            p1 = model.predict_proba(x)
+            p_list.append(p1[:, 1])
+        p = np.mean(np.vstack(p_list), axis=0)
+        #print(p)
+        return np.c_[1 - p, p]
+
+    # TODO: функция сгенерирует модель ProbabilityMinEntropyModel на основе усреднения порогов
+    def simplified_model(self, x, y):
+        data_size, num_features = x.shape[0], x.shape[1]
+
+        model = ProbabilityMinEntropyModel()
+        model.cutoffs = np.mean(np.vstack([m.cutoffs for m in self.models]), axis=0)
+        model.clf = BinaryProbabilityModel()
+        z = np.zeros((data_size, num_features), dtype=int)
+        for j in range(num_features):
+            z[:, j] = np.where(x[:, j] >= model.cutoffs[j], 1, 0)
+        model.clf.fit(z, y)
+
+        return model
+
+
+def find_predictors_to_invert(data, predictors):
+    # обучаем логистическую регрессию с выделенными признаками,
+    #   выбираем признаки с отрицательными весами
+    data.prepare(predictors, "Dead", [])
+    logist_reg = LogisticRegression()
+    logist_reg.fit(data.x, data.y)
+    weights = logist_reg.coef_.ravel()
+    invert_predictors = []
+    for i, feature_name in enumerate(predictors):
+        if weights[i] < 0:
+            invert_predictors.append(feature_name)
+    return invert_predictors
+
+
+def print_model(model, data):
+    print("=" * 10 + "\nМодель")
+    print("Пороги:")
+    for k, feature_name in enumerate(predictors):
+        val = data.get_coord(feature_name, model.cutoffs[k])
+        s = '≤' if feature_name in data.inverted_predictors else '≥'
+        print(feature_name, " ", s, val, sep='')
+
+
+def t_model(model, x_test, y_test, p_threshold):
+    p = model.predict_proba(x_test)[:, 1]
+    auc = sklearn_metrics.roc_auc_score(y_test, p)
+    print("AUC:", auc)
+    # выводим качество модели
+    y_pred = np.where(p > p_threshold, 1, 0)
+    tn, fp, fn, tp = sklearn_metrics.confusion_matrix(y_test, y_pred).ravel()
+    specificity = tn / (tn + fp)
+    sensitivity = tp / (tp + fn)
+    print("Sens:", sensitivity, "Spec:", specificity)
+    print("tp =", tp, "fn =", fn, "fp =", fp, "tn =", tn)
+    return auc, sensitivity, specificity
+
+
+
+data = Data("DataSet_new.xlsx")
+
+predictors = ["Age", "HR", "Killip class", "Cr", "EF LV", "NEUT", "EOS", "PCT", "Glu", "SBP"]
+
+#predictors = ["Age", "Killip class", "Cr", "EF LV", "NEUT"]
+
+"""
+threshold = 0.15:
+    (Age & Cr & EF_LV & Glu & NEUT) | (Age & Cr & EF_LV & Killip_class & NEUT) | (Age & Cr & Glu & HR & NEUT) | (Age & Cr & Glu & Killip_class & NEUT) | (Age & Cr & Glu & NEUT & SBP) | (Cr & EF_LV & EOS & Killip_class & SBP) | (Cr & EF_LV & EOS & NEUT & SBP) | (Cr & EOS & HR & Killip_class & SBP) | (EF_LV & HR & Killip_class & NEUT & SBP) 
+"""
+
+"""
+predictors = ["Age", "Cr", "EF LV", "NEUT", "Glu"]
+Age ≥69.46343099746149
+Cr ≥167.944027130994
+EF LV ≤33.033174188660354
+NEUT ≥75.42117692704959
+Glu ≥7.062776779828779
+EF_LV | (Age & Cr) | (Age & NEUT) | (Cr & Glu) | (Cr & NEUT) | (Glu & NEUT)
+
+predictors = ["Age", "Killip class", "Cr", "EF LV", "NEUT"]
+Age ≥70.57561758066473
+Killip class ≥2.9698577158827306
+Cr ≥154.18287069093304
+EF LV ≤35.37571892147048
+NEUT ≥75.21380169168862
+(Age & NEUT) | (Cr & NEUT) | (EF_LV & NEUT) | (Killip_class & NEUT) | (Age & Cr & ~Killip_class) | (Age & EF_LV & ~Killip_class) | (Age & Killip_class & ~Cr) | (Cr & EF_LV & ~Age) | (Cr & Killip_class & ~Age) | (EF_LV & Killip_class & ~Age)
+
+predictors = ["Age", "HR", "Cr", "NEUT", "Glu"]
+Age ≥68.40573101284396
+HR ≥84.51792574832406
+Cr ≥159.83739760787995
+NEUT ≥74.99352559492017
+Glu ≥12.605976001915433
+(Age & NEUT) | (Cr & NEUT) | (Glu & NEUT) | (HR & NEUT) | (Cr & Glu & ~HR) | (Cr & HR & ~Glu) | (Glu & HR & ~Age & ~Cr)
+"""
+
+#set_cutoffs = None
+
+#set_cutoffs = [70, 82, 3, 135.7, 45, 75.6, 0.48, 0.24, 6.83, 115]
+
+"""
+На новых данных:
+Модель
+Пороги:
+Age ≥68.4167108422245
+HR ≥82.66553260745121
+Killip class ≥2.9149268036634406
+Cr ≥128.25045963014045
+EF LV ≤47.70503668713291
+NEUT ≥74.46746039457169
+EOS ≤0.53328754140923
+PCT ≥0.3883761527562328
+Glu ≥10.579654694751333
+SBP ≤126.7127359974053
+"""
+
+simplified_aggregation = False
+
+set_cutoffs = [68, 83, 3, 129, 47, 74, 0.53, 0.39, 10.58, 126]
+
+invert_predictors = find_predictors_to_invert(data, predictors)
+data.prepare(predictors, "Dead", invert_predictors)
+
+"""
+set_all_cutoffs = [[60.974430441762586, 81.43714510034326, 2.9149268036634406, 96.45099908763994, 48.695076216766005,
+                   75.0980117759417, 1.3090322242800854, 0.23939388108101103, 6.689632704202784, 114.9781078659088],
+                   [66.13692832968316, 78.47766971087532, 2.9149268036634406, 108.16382636058083, 51.40655843722995,
+                    79.0397352546504, 0.2309940496156302, 1.494736126513699, 8.70599952999044, 126.60773898390306],
+                   [66.409914050555, 86.64546812977943, 2.9149268036634406, 154.52695043817903, 53.884937316250124,
+                    78.90835631366298, 0.12934343382678182, 0.20411609232285877, 9.746436533407984, 129.00857087409457],
+                   [71.467781842493, 83.7460881987596, 2.9149268036634406, 123.51432709312061, 52.65206212417899,
+                    75.45526685294391, 0.4995557278518177, 0.2849261252096274, 11.18142762773943, 117.12820666794772],
+                   [67.65836078376293, 88.48990910182567, 2.9149268036634406, 163.30844754102156, 47.351081439788516,
+                    77.98504476589562, 0.5877022934324242, 0.21935814178525076, 9.846333421628303, 116.34833582007585]]
+"""
+
+set_all_cutoffs = None
+
+
+"""
+# оставим только часть данных - для тестирования
+data.x = data.x[:100, :]
+data.y = data.y[:100]
+print(data.x.shape, data.y.shape)
+"""
+
+
+#print(data.ids)
+
+if set_cutoffs is not None:
+    transformed_cutoffs = []
+    for i, nt in enumerate(set_cutoffs):
+        val_normal = nt
+        if predictors[i] in invert_predictors:
+            val_normal = -val_normal
+        val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
+        transformed_cutoffs.append(val)
+    set_cutoffs = transformed_cutoffs
+
+if set_all_cutoffs is not None:
+    transformed_all_cutoffs = []
+    for l in set_all_cutoffs:
+        tl = []
+        for i, nt in enumerate(l):
+            val_normal = nt
+            if predictors[i] in invert_predictors:
+                val_normal = -val_normal
+            val = (val_normal - data.scaler_mean[i]) / data.scaler_scale[i]
+            tl.append(val)
+        transformed_all_cutoffs.append(tl)
+    set_all_cutoffs = transformed_all_cutoffs
+
+
+threshold = 0.025
+
+num_splits = 2
+random_state = 123
+
+np.random.seed(random_state)
+random.seed(random_state)
+
+csvfile = open('splits.csv', 'w', newline='')
+csvwriter = csv.writer(csvfile, delimiter=';')
+
+csvwriter.writerow(["auc_cv", "sen_cv", "spec_cv", "auc_test (agg)", "sen_test (agg)", "spec_test (agg)",
+                    "auc_test (simplif)", "sen_test (simplif)", "spec_test (simplif)"])
+
+prev_num = 8
+
+for it in range(prev_num + 1, prev_num + 1 + num_splits):
+    print("SPLIT #", it, "of", num_splits)
+    np.random.seed(it + 42)
+    random.seed(it + 42)
+
+    x_train_all, x_test_all, y_train_all, y_test_all, indices_train_all, indices_test_all = \
+        train_test_split(data.x, data.y, np.arange(len(data.y)), test_size=0.2, stratify=data.y, random_state=it + 42)
+
+    if simplified_aggregation:
+        if set_cutoffs is None:
+            skf = StratifiedKFold(n_splits=5)  #8)
+            all_cutpoints = []
+            #auc_history = []
+            # TODO: вывести точность модели на кросс-валидации
+            for fold, (train_index, test_index) in enumerate(skf.split(x_train_all, y_train_all)):
+                x_train, x_test = data.x[train_index, :], data.x[test_index, :]
+                y_train, y_test = data.y[train_index], data.y[test_index]
+                print("  Fold", fold + 1)
+
+                model1 = ProbabilityMinEntropyModel()
+                model1.fit(x_train, y_train)
+                print_model(model1, data)
+                all_cutpoints.append(model1.cutoffs)
+
+                t_model(model1, x_test, y_test, threshold)
+                #model1.interpret()
+
+        if set_cutoffs is None:
+            # усредняем найденные пороги
+            cutpoints = np.mean(np.vstack(all_cutpoints), axis=0)
+        else:
+            cutpoints = set_cutoffs
+
+        avg_model = ProbabilityMinEntropyModel()
+        avg_model.fit(x_train_all, y_train_all, set_cutoffs=cutpoints)
+        print_model(avg_model, data)
+        avg_model.clf.interpret(threshold)  #, use_bdd=True)
+        #avg_model.clf.interpret_combinations(3)
+
+
+        # аналог объяснений Шепли
+        pred = avg_model.predict_proba(x_train_all)[:, 1]
+        z = np.zeros((x_train_all.shape[0], x_train_all.shape[1]), dtype=int)
+        for j in range(x_train_all.shape[1]):
+            z[:, j] = np.where(x_train_all[:, j] >= avg_model.cutoffs[j], 1, 0)
+        for i in range(x_train_all.shape[0]):
+            # пропускаем реальные "нули"
+            if y_train_all[i] == 0:
+                continue
+
+            vec = avg_model.clf.interpret_Shapley(z[i, :])
+            print("Пациент", data.ids[indices_train_all[i]])
+            # TODO: исправить ошибку с ID (индекс нужно брать из разделенной выборки)
+            print("Y = %d, Prob = %.1f%%" % (y_train_all[i], pred[i] * 100))
+            for j in range(x_train_all.shape[1]):
+                if vec[j] != 0.0:
+                    print("  %s = %.2f [%.1f%%]" % (predictors[j], data.get_coord(predictors[j], x_train_all[i, j]), vec[j] * 100), end='')
+            print(" -> Sum = %.1f; Prob - Sum = %.3f " % (np.sum(vec) * 100, pred[i] * 100 - np.sum(vec) * 100))
+            print()
+
+        # TODO: вывести параметры всех 5 моделей, которые мы усреднили
+        #avg_model.clf.interpret_tree(threshold)
+        #avg_model.clf.interpret_tree_proba()
+        auc1, sen1, spec1 = t_model(avg_model, x_test_all, y_test_all, threshold)
+
+        csvwriter.writerow(map(str, [auc1, sen1, spec1]))
+
+    else:  # simplified_aggregation == False
+        aggregated_model = AggregatedModel()
+        #print(x_train_all.shape, y_train_all.shape)
+        aggregated_model.fit(x_train_all, y_train_all, set_all_cutoffs=set_all_cutoffs)
+        #pred = aggregated_model.predict_proba(x_train_all)[:, 1]
+
+        print(f"Cross validation AUC =", aggregated_model.cv_auc, "\n")
+        cv_auc = aggregated_model.cv_auc
+        cv_sens = aggregated_model.cv_sens
+        cv_spec = aggregated_model.cv_spec
+
+        simplified_model = aggregated_model.simplified_model(x_train_all, y_train_all)
+        print("МОДЕЛЬ С УСРЕДНЕННЫМИ ПОРОГАМИ")
+        print_model(simplified_model, data)
+        auc2, sen2, spec2 = t_model(simplified_model, x_test_all, y_test_all, threshold)
+
+        print("МОДЕЛИ:")
+        for i, model in enumerate(aggregated_model.models):
+            print("\nМодель %d:" % (i + 1))
+            print_model(model, data)
+
+        # Для каждой модели считаем предсказанную вероятность с числами Шепли (на всей выборке?)
+        # Выводим подробную информацию + средняя вероятность + средние числа Шепли
+        all_pred = []
+        all_phi = []
+        all_phi_0 = []
+        for model_ind, model in enumerate(aggregated_model.models):
+            # предсказания вероятности
+            pred = model.predict_proba(data.x)[:, 1]
+            all_pred.append(pred)
+            phi = np.zeros((data.x.shape[0], data.x.shape[1]))
+            phi_0 = np.zeros(data.x.shape[0])
+            z = np.zeros((data.x.shape[0], data.x.shape[1]), dtype=int)
+            for j in range(data.x.shape[1]):
+                z[:, j] = np.where(data.x[:, j] >= model.cutoffs[j], 1, 0)
+            for i in range(data.x.shape[0]):
+                # TODO: потом вывести в таблицу data.y[i] - реальный класс
+                vec = model.clf.interpret_Shapley(z[i, :])
+                phi[i, :] = vec
+                phi_0[i] = pred[i] - np.sum(vec)
+            all_phi.append(phi)
+            all_phi_0.append(phi_0)
+        mean_pred = np.mean(np.vstack(all_pred), axis=0)
+        mean_phi_0 = np.mean(np.vstack(all_phi_0), axis=0)
+        mean_phi = np.mean(all_phi, axis=0)
+
+        print("phi_0 =", all_phi_0)
+        print("mean_phi_0 =", mean_phi_0)
+
+        print()
+        print("Статистика по пациентам")
+        print()
+        for i in range(data.x.shape[0]):
+            if data.y[i] == 0:
+                continue
+            print("Пациент", data.ids[i])
+            print("Y = %d, Prob = %.1f%%" % (data.y[i], mean_pred[i] * 100))
+            for j in range(data.x.shape[1]):
+                print("  %s = %.2f [%.1f%%]" % (predictors[j], data.get_coord(predictors[j], data.x[i, j]), mean_phi[i, j] * 100), end='')
+            print()
+            for k in range(len(aggregated_model.models)):
+                print("   Модель %d => P = %.1f%%;" % (k + 1, all_pred[k][i] * 100), end='')
+                for j in range(data.x.shape[1]):
+                    print("  %s [%.1f%%]" % (predictors[j], all_phi[k][i, j] * 100), end='')
+                print()
+
+        auc1, sen1, spec1 = t_model(aggregated_model, x_test_all, y_test_all, threshold)
+
+        csvwriter.writerow(map(str, [cv_auc, cv_sens, cv_spec, auc1, sen1, spec1, auc2, sen2, spec2]))
+
+        # TODO: глобальные объяснения - для каждой пары предикторов посчитать, у скольких наблюдений сумма соответствующих
+        #   чисел Шепли не меньше порога отсечения
+
+        pairs_counter = np.zeros((data.x.shape[1], data.x.shape[1]), dtype=int)
+        pairs_counter_zeros = np.zeros((data.x.shape[1], data.x.shape[1]), dtype=int)
+        for i in range(data.x.shape[0]):
+            # берем только реальные "1"
+            #if data.y[i] == 0:
+            #    continue
+
+            for j1 in range(data.x.shape[1]):
+                for j2 in range(j1 + 1, data.x.shape[1]):
+                    if mean_phi[i, j1] + mean_phi[i, j2] >= threshold:
+                        if data.y[i] == 1:
+                            pairs_counter[j1, j2] += 1
+                        else:
+                            pairs_counter_zeros[j1, j2] += 1
+        print(pairs_counter, pairs_counter_zeros)
+        # упорядочим все пары по убыванию значений счетчика
+        l = []
+        for j1 in range(data.x.shape[1]):
+            for j2 in range(j1 + 1, data.x.shape[1]):
+                l.append((pairs_counter[j1, j2], pairs_counter_zeros[j1, j2], predictors[j1], predictors[j2]))
+        l.sort(reverse=True)
+        for v in l:
+            print(v)

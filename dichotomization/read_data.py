@@ -67,7 +67,7 @@ class Data:
             self.dataset['NEUT'] = self.dataset['Нейтрофилы (относительное значение)']
 
 
-    def prepare(self, selected_predictors, output_feature, invert_predictors, scale_data=True):
+    def prepare(self, selected_predictors, output_feature, invert_predictors, scale_data=True, shuffle=False):
         """
         selected_predictors - список названий признаков
         output_feature - название выходного признака
@@ -104,6 +104,14 @@ class Data:
             self.y = data_y
 
         self.ids = self.dataset['ID']
+
+        if shuffle:
+            ind = np.arange(len(self.y))
+            np.random.shuffle(ind)
+            self.x = self.x[ind]
+            self.y = self.y[ind]
+            self.ids = self.ids[ind]
+
 
     def get_coord(self, feature_name, scaled_val):
         """

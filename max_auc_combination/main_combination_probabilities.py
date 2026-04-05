@@ -474,12 +474,20 @@ Glu ≥10.579654694751333
 SBP ≤126.7127359974053
 """
 
+
+random_state = 123
+
+np.random.seed(random_state)
+random.seed(random_state)
+
+
+
 simplified_aggregation = False
 
 set_cutoffs = [68, 83, 3, 129, 47, 74, 0.53, 0.39, 10.58, 126]
 
 invert_predictors = find_predictors_to_invert(data, predictors)
-data.prepare(predictors, "Dead", invert_predictors)
+data.prepare(predictors, "Dead", invert_predictors, shuffle=True)
 
 """
 set_all_cutoffs = [[60.974430441762586, 81.43714510034326, 2.9149268036634406, 96.45099908763994, 48.695076216766005,
@@ -534,10 +542,7 @@ if set_all_cutoffs is not None:
 threshold = 0.025
 
 num_splits = 2
-random_state = 123
 
-np.random.seed(random_state)
-random.seed(random_state)
 
 csvfile = open('splits.csv', 'w', newline='')
 csvwriter = csv.writer(csvfile, delimiter=';')

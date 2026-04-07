@@ -10,9 +10,14 @@ from sklearn.linear_model import LogisticRegression
 import csv
 from sklearn.model_selection import train_test_split, StratifiedKFold
 import numpy as np
+import pandas as pd
+import statsmodels.api as sm
 from sklearn import tree
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import make_scorer, roc_auc_score, confusion_matrix, f1_score, accuracy_score, recall_score, \
+    roc_curve, auc
 import sklearn.metrics as sklearn_metrics
+from sklearn.model_selection import train_test_split, cross_validate, StratifiedKFold
 import math
 #from pyDOE import lhs
 #from geneticalgorithm import geneticalgorithm as ga
@@ -25,6 +30,46 @@ import pygad
 import random
 import matplotlib.pyplot as plt
 from dd.autoref import BDD
+
+
+# Функция для вычисления 95% доверительного интервала
+def compute_confidence_interval(data):
+    mean = np.mean(data)
+    std_error = np.std(data, ddof=1) / np.sqrt(len(data))
+    confidence_interval = 1.96 * std_error
+    return mean, mean - confidence_interval, mean + confidence_interval
+
+
+threshold = 0.05
+
+# Функция для расчета специфичности
+def specificity_score(y_true, y_pred):
+    tn, fp, fn, tp = confusion_matrix(y_true, y_pred).ravel()
+    specificity = tn / (tn + fp)
+    return specificity
+
+# Функция для преобразования вероятностей в бинарные метки с заданным порогом
+def custom_predict(proba, threshold=threshold):  # Устанавливаем порог 0.05
+    return (proba >= threshold).astype(int)
+
+# Пользовательская функция для расчета метрик с учетом порога
+def custom_metric(y_true, proba, metric_func, threshold=threshold):  # Устанавливаем порог 0.05
+    y_pred = custom_predict(proba, threshold)
+    return metric_func(y_true, y_pred)
+
+# Создаем пользовательские scorer'ы с порогом 0.05
+def custom_f1_score(y_true, proba, threshold=threshold):
+    return custom_metric(y_true, proba, f1_score, threshold=threshold)
+
+def custom_accuracy_score(y_true, proba, threshold=threshold):
+    return custom_metric(y_true, proba, accuracy_score, threshold=threshold)
+
+def custom_recall_score(y_true, proba, threshold=threshold):
+    return custom_metric(y_true, proba, recall_score, threshold=threshold)
+
+def custom_specificity_score(y_true, proba, threshold=threshold):
+    return custom_metric(y_true, proba, specificity_score, threshold=threshold)
+
 
 
 def find_predictors_to_invert(data, predictors):
@@ -298,6 +343,332 @@ set_all_cutoffs = [
      76.07287634248969, 0.39510176027553645, 0.22485477434992357, 7.789882830490346, 131.71045201390467]
 ]
 
+set_all_cutoffs = np.array(set_all_cutoffs)
+
+
+fav = [('EOS', 'Glu'), ('Age', 'NEUT'), ('HR', 'EOS'), ('EF LV', 'Glu'),
+       ('Cr', 'NEUT'), ('Age', 'EOS'), ('HR', 'EF LV'), ('HR', 'Glu'),
+       ('HR', 'Killip class'), ('EOS', 'SBP'), ('Killip class', 'EF LV'),
+       ('Cr', 'Glu'), ('Cr', 'EOS'), ('Cr', 'EF LV'), ('NEUT', 'PCT')]
+       #('EF LV', 'SBP'), ('Glu', 'SBP'), ('Cr', 'SBP'), ('Killip class', 'Glu')]
+       #('Killip class', 'Cr'), ('HR', 'Cr'), ('Age', 'Glu'), ('HR', 'SBP')]
+
+# вычисляем логические переменные (парные фенотипы)
+
+phenotypes = []
+for j in range(data.x.shape[1]):
+    for k in range(j + 1, data.x.shape[1]):
+        if (predictors[j], predictors[k]) not in fav:
+            continue
+
+        F = np.zeros(data.x.shape[0], dtype=int)
+        for i in range(data.x.shape[0]):  # перечисляем все наблюдения
+            def count_balls(p, val):
+                """
+                p - индекс предиктора
+                """
+                balls = 0  # сколько баллов дает p-й предиктор
+                # считаем, сколько моделей считают p-й предиктор фактором риска
+                for m in range(5):
+                    if predictors[p] in invert_predictors:
+                        if val <= set_all_cutoffs[m, p]:
+                            balls += 1
+                    else:
+                        if val >= set_all_cutoffs[m, p]:
+                            balls += 1
+                return balls
+
+            balls_j = count_balls(j, data.get_coord(predictors[j], data.x[i, j]))
+            balls_k = count_balls(k, data.get_coord(predictors[k], data.x[i, k]))
+            if balls_j + balls_k >= 5:
+                F[i] = 1
+
+            """
+            balls_j = 0  # сколько баллов дает j-й предиктор
+            # считаем, сколько моделей считают j-й предиктор фактором риска
+            if predictors[j] in invert_predictors:
+                
+            balls_k = 0  # сколько баллов дает k-й предиктор
+            # считаем, сколько моделей считают k-й предиктор фактором риска
+            """
+
+        phenotypes.append({'j': j, 'k': k, 'F': F})
+
+#print(phenotypes)
+
+phenotypes_x = np.zeros((data.x.shape[0], len(phenotypes)), dtype=int)
+for p in range(len(phenotypes)):
+    phenotypes_x[:, p] = phenotypes[p]['F']
+
+
+
+isModel = 1 # 1 - Logistic
+rm = 100
+border = 0.03
+np.random.seed(rm)
+
+x_all = phenotypes_x  #np.array(df[features], dtype=int)
+y1 = data.y   #np.array(df['Dead'].astype('int'))
+#y_all = utils.to_categorical(y1)
+
+# Параметры для модели
+#solver1 = 'lbfgs'
+solver1 = 'liblinear'
+max_iter1 = 2000
+C1 = 1
+#penalty1 = 'l2'
+penalty1 = 'l1'
+
+lr = 0.1
+m_d = 2
+n_e = 100
+spw = 1
+
+m_d1 = 3
+n_e1 = 180
+
+"""
+
+# оцениваем точность каждого фактора риска
+for p in range(len(phenotypes)):
+    print("ФР", predictors[phenotypes[p]['j']], '&', predictors[phenotypes[p]['k']])
+
+    # Для хранения результатов
+    mean_roc_auc_test = []
+    mean_sen_test = []
+    mean_spec_test = []
+    mean_f1_test = []
+    mean_acc_test = []
+    mean_ppv_test = []
+    mean_npv_test = []
+
+    mean_roc_auc = []
+    mean_sensitivity = []
+    mean_specificity = []
+    mean_acc = []
+    mean_f1 = []
+    mean_ppv = []
+    mean_npv = []
+
+    # Выборка из одного признака
+    x_feat = phenotypes_x[:, p].reshape(-1, 1) #np.array(df[feat]).reshape(-1, 1)
+
+    ct = pd.crosstab(y1, phenotypes_x[:, p])
+    table = sm.stats.Table2x2(ct, shift_zeros=False)
+    print(table)
+    odds_ratio = table.oddsratio
+    confint = table.oddsratio_confint()
+
+    print('Odds ratio, 95% CI', odds_ratio, confint)
+
+    # Повторить 10 раз
+    for j in range(100):
+        #print("SPLIT #", j)
+        np.random.seed(j + 42)
+
+        # Случайное разделение данных на обучающую (80%) и тестовую (20%) выборки
+        x_train, x_validate, y_train, y_validate = train_test_split(x_feat, y1, train_size=0.8, stratify=y1,
+                                                                    random_state=j + 42)
+        model = LogisticRegression(solver=solver1, max_iter=max_iter1, C=C1, penalty=penalty1)
+        # Настроим метрики для кросс-валидации
+        scoring = {'roc_auc': make_scorer(roc_auc_score, response_method='predict_proba'),
+                   'f1': make_scorer(custom_f1_score, response_method='predict_proba', threshold=border),
+                   'accuracy': make_scorer(custom_accuracy_score, response_method='predict_proba', threshold=border),
+                   'sensitivity': make_scorer(custom_recall_score, response_method='predict_proba', threshold=border),
+                   'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=border)
+                   }
+        # Выполним кросс-валидацию с использованием cross_validate
+        cv_results = cross_validate(model, x_train, y_train, cv=StratifiedKFold(n_splits=10),
+                                    scoring=scoring, return_train_score=False)
+        # Сохранение метрик кросс-валидации
+        mean_roc_auc.append(np.mean(cv_results['test_roc_auc']))
+        mean_f1.append(np.mean(cv_results['test_f1']))
+        mean_acc.append(np.mean(cv_results['test_accuracy']))
+        mean_sensitivity.append(np.mean(cv_results['test_sensitivity']))
+        mean_specificity.append(np.mean(cv_results['test_specificity']))
+
+        # Обучение модели на всей обучающей выборке
+        model.fit(x_train, y_train)
+        # Тестирование на валидационной выборке (20%)
+        y_pred_prob = model.predict_proba(x_validate)[:, 1]  # Вероятности для положительного класса
+        y_pred = (y_pred_prob >= border).astype(int)
+        # Матрица ошибок
+        cMatrix = confusion_matrix(y_validate, y_pred)
+        sensivity = cMatrix[1][1] / (cMatrix[1][0] + cMatrix[1][1])
+        specifity = cMatrix[0][0] / (cMatrix[0][0] + cMatrix[0][1])
+        fpr, tpr, _ = roc_curve(y_validate, y_pred_prob)
+        roc_auc = auc(fpr, tpr)
+        f1 = f1_score(y_validate, y_pred)
+        acc = accuracy_score(y_validate, y_pred)
+        ppv = cMatrix[1][1] / (cMatrix[1][1] + cMatrix[0][1])
+        npv = cMatrix[0][0] / (cMatrix[0][0] + cMatrix[1][0])
+
+        # Сохранение результатов
+        mean_roc_auc_test.append(roc_auc)
+        mean_sen_test.append(sensivity)
+        mean_spec_test.append(specifity)
+        mean_f1_test.append(f1)
+        mean_acc_test.append(acc)
+        mean_ppv_test.append(ppv)
+        mean_npv_test.append(npv)
+
+    roc_auc_mean, roc_auc_lower, roc_auc_upper = compute_confidence_interval(mean_roc_auc)
+    f1_mean, f1_lower, f1_upper = compute_confidence_interval(mean_f1)
+    acc_mean, acc_lower, acc_upper = compute_confidence_interval(mean_acc)
+    sen_mean, sen_lower, sen_upper = compute_confidence_interval(mean_sensitivity)
+    spec_mean, spec_lower, spec_upper = compute_confidence_interval(mean_specificity)
+
+    # Вывод результатов
+    print(f"Кросс-валидационный ROC-AUC: {roc_auc_mean:.4f} 95% [ {roc_auc_lower:.4f}, {roc_auc_upper:.4f} ]")
+    #print(f"Кросс-валидация Чувствительность: {sen_mean:.4f} 95% [ {sen_lower:.4f}, {sen_upper:.4f} ]")
+    #print(f"Кросс-валидация Специфичность: {spec_mean:.4f} 95% [ {spec_lower:.4f}, {spec_upper:.4f} ]")
+    #print(f"Кросс-валидационный F1: {f1_mean:.4f} 95% [ {f1_lower:.4f}, {f1_upper:.4f} ]")
+    #print(f"Кросс-валидационный (Accuracy): {acc_mean:.4f} 95% [ {acc_lower:.4f}, {acc_upper:.4f} ]")
+
+    # Итоговые результаты с доверительными интервалами
+    roc_auc_mean, roc_auc_lower, roc_auc_upper = compute_confidence_interval(mean_roc_auc_test)
+    sen_mean, sen_lower, sen_upper = compute_confidence_interval(mean_sen_test)
+    spec_mean, spec_lower, spec_upper = compute_confidence_interval(mean_spec_test)
+    f1_mean, f1_lower, f1_upper = compute_confidence_interval(mean_f1_test)
+    acc_mean, acc_lower, acc_upper = compute_confidence_interval(mean_acc_test)
+    ppv_mean, ppv_lower, ppv_upper = compute_confidence_interval(mean_ppv_test)
+    npv_mean, npv_lower, npv_upper = compute_confidence_interval(mean_npv_test)
+
+    # Вывод результатов
+    # print("---------------------------------------")
+    print(f"Средний ROC-AUC: {roc_auc_mean:.4f} 95% [ {roc_auc_lower:.4f}, {roc_auc_upper:.4f} ]")
+    #print(f"Средняя Чувствительность: {sen_mean:.4f} 95% [ {sen_lower:.4f}, {sen_upper:.4f} ]")
+    #print(f"Средняя Специфичность: {spec_mean:.4f} 95% [ {spec_lower:.4f}, {spec_upper:.4f} ]")
+    #print(f"Средняя F1: {f1_mean:.4f} 95% [ {f1_lower:.4f}, {f1_upper:.4f} ]")
+    #print(f"Средняя Точность (Accuracy): {acc_mean:.4f} 95% [ {acc_lower:.4f}, {acc_upper:.4f} ]")
+    #print(f"Средний PPV: {ppv_mean:.4f} 95% [ {ppv_lower:.4f}, {ppv_upper:.4f} ]")
+    #print(f"Средний NPV: {npv_mean:.4f} 95% [ {npv_lower:.4f}, {npv_upper:.4f} ]")
+
+"""
+
+# Для хранения результатов
+mean_roc_auc_test = []
+mean_sen_test = []
+mean_spec_test = []
+mean_f1_test = []
+mean_acc_test = []
+mean_ppv_test = []
+mean_npv_test = []
+
+mean_roc_auc=[]
+mean_sensitivity=[]
+mean_specificity=[]
+mean_acc=[]
+mean_f1=[]
+mean_ppv=[]
+mean_npv=[]
+
+# Повторить 10 раз
+for j in range(100):
+    print("SPLIT #", j)
+    np.random.seed(j + 42)
+
+    # Случайное разделение данных на обучающую (80%) и тестовую (20%) выборки
+    x_train, x_validate, y_train, y_validate = train_test_split(x_all, y1, train_size=0.8, stratify=y1,
+                                                                random_state=j + 42)
+
+    # Создаем классификатор в зависимости от выбора модели
+    if isModel == 1:
+        model = LogisticRegression(solver=solver1, max_iter=max_iter1, C=C1, penalty=penalty1)
+    elif isModel == 2:
+        model = xgb.XGBClassifier(learning_rate=lr, eval_metric="auc", scale_pos_weight=spw,
+                                  max_depth=m_d, n_estimators=n_e, random_state=j + 42)
+    elif isModel == 3:
+        model = CatBoostClassifier(learning_rate=lr, eval_metric="AUC", scale_pos_weight=spw, max_depth=m_d,
+                                   n_estimators=n_e,
+                                   random_state=j + 42,
+                                   cat_features=list(range(len(features))),  # Указываем категориальные колонки
+                                   verbose=0)
+    else:
+        model = RandomForestClassifier(random_state=j + 42, n_estimators=n_e1, max_depth=m_d1)
+
+    # Настроим метрики для кросс-валидации
+    scoring = {'roc_auc': make_scorer(roc_auc_score, response_method='predict_proba'),
+               'f1': make_scorer(custom_f1_score, response_method='predict_proba', threshold=border),
+               'accuracy': make_scorer(custom_accuracy_score, response_method='predict_proba', threshold=border),
+               'sensitivity': make_scorer(custom_recall_score, response_method='predict_proba', threshold=border),
+               'specificity': make_scorer(custom_specificity_score, response_method='predict_proba', threshold=border)
+               }
+
+    # Выполним кросс-валидацию с использованием cross_validate
+    cv_results = cross_validate(model, x_train, y_train, cv=StratifiedKFold(n_splits=10),
+                                scoring=scoring, return_train_score=False)
+
+    # Сохранение метрик кросс-валидации
+    mean_roc_auc.append(np.mean(cv_results['test_roc_auc']))
+    mean_f1.append(np.mean(cv_results['test_f1']))
+    mean_acc.append(np.mean(cv_results['test_accuracy']))
+    mean_sensitivity.append(np.mean(cv_results['test_sensitivity']))
+    mean_specificity.append(np.mean(cv_results['test_specificity']))
+
+    # Обучение модели на всей обучающей выборке
+    model.fit(x_train, y_train)
+
+    #print(model.coef_)
+
+    # Тестирование на валидационной выборке (20%)
+    y_pred_prob = model.predict_proba(x_validate)[:, 1]  # Вероятности для положительного класса
+    y_pred = (y_pred_prob >= border).astype(int)
+
+    # Матрица ошибок
+    cMatrix = confusion_matrix(y_validate, y_pred)
+    sensivity = cMatrix[1][1] / (cMatrix[1][0] + cMatrix[1][1])
+    specifity = cMatrix[0][0] / (cMatrix[0][0] + cMatrix[0][1])
+    fpr, tpr, _ = roc_curve(y_validate, y_pred_prob)
+    roc_auc = auc(fpr, tpr)
+    f1 = f1_score(y_validate, y_pred)
+    acc = accuracy_score(y_validate, y_pred)
+    ppv = cMatrix[1][1] / (cMatrix[1][1] + cMatrix[0][1])
+    npv = cMatrix[0][0] / (cMatrix[0][0] + cMatrix[1][0])
+
+    # Сохранение результатов
+    mean_roc_auc_test.append(roc_auc)
+    mean_sen_test.append(sensivity)
+    mean_spec_test.append(specifity)
+    mean_f1_test.append(f1)
+    mean_acc_test.append(acc)
+    mean_ppv_test.append(ppv)
+    mean_npv_test.append(npv)
+
+roc_auc_mean, roc_auc_lower, roc_auc_upper = compute_confidence_interval(mean_roc_auc)
+f1_mean, f1_lower, f1_upper = compute_confidence_interval(mean_f1)
+acc_mean, acc_lower, acc_upper = compute_confidence_interval(mean_acc)
+sen_mean, sen_lower, sen_upper = compute_confidence_interval(mean_sensitivity)
+spec_mean, spec_lower, spec_upper = compute_confidence_interval(mean_specificity)
+
+# Вывод результатов
+print(f"Кросс-валидационный ROC-AUC: {roc_auc_mean:.4f} 95% [ {roc_auc_lower:.4f}, {roc_auc_upper:.4f} ]")
+print(f"Кросс-валидация Чувствительность: {sen_mean:.4f} 95% [ {sen_lower:.4f}, {sen_upper:.4f} ]")
+print(f"Кросс-валидация Специфичность: {spec_mean:.4f} 95% [ {spec_lower:.4f}, {spec_upper:.4f} ]")
+print(f"Кросс-валидационный F1: {f1_mean:.4f} 95% [ {f1_lower:.4f}, {f1_upper:.4f} ]")
+print(f"Кросс-валидационный (Accuracy): {acc_mean:.4f} 95% [ {acc_lower:.4f}, {acc_upper:.4f} ]")
+
+# Итоговые результаты с доверительными интервалами
+roc_auc_mean, roc_auc_lower, roc_auc_upper = compute_confidence_interval(mean_roc_auc_test)
+sen_mean, sen_lower, sen_upper = compute_confidence_interval(mean_sen_test)
+spec_mean, spec_lower, spec_upper = compute_confidence_interval(mean_spec_test)
+f1_mean, f1_lower, f1_upper = compute_confidence_interval(mean_f1_test)
+acc_mean, acc_lower, acc_upper = compute_confidence_interval(mean_acc_test)
+ppv_mean, ppv_lower, ppv_upper = compute_confidence_interval(mean_ppv_test)
+npv_mean, npv_lower, npv_upper = compute_confidence_interval(mean_npv_test)
+
+# Вывод результатов
+# print("---------------------------------------")
+print(f"Средний ROC-AUC: {roc_auc_mean:.4f} 95% [ {roc_auc_lower:.4f}, {roc_auc_upper:.4f} ]")
+print(f"Средняя Чувствительность: {sen_mean:.4f} 95% [ {sen_lower:.4f}, {sen_upper:.4f} ]")
+print(f"Средняя Специфичность: {spec_mean:.4f} 95% [ {spec_lower:.4f}, {spec_upper:.4f} ]")
+print(f"Средняя F1: {f1_mean:.4f} 95% [ {f1_lower:.4f}, {f1_upper:.4f} ]")
+print(f"Средняя Точность (Accuracy): {acc_mean:.4f} 95% [ {acc_lower:.4f}, {acc_upper:.4f} ]")
+print(f"Средний PPV: {ppv_mean:.4f} 95% [ {ppv_lower:.4f}, {ppv_upper:.4f} ]")
+print(f"Средний NPV: {npv_mean:.4f} 95% [ {npv_lower:.4f}, {npv_upper:.4f} ]")
+
+
+
 
 """
 # оставим только часть данных - для тестирования
@@ -321,9 +692,6 @@ for l in set_all_cutoffs:
 set_all_cutoffs = np.array(transformed_all_cutoffs)
 """
 
-set_all_cutoffs = np.array(set_all_cutoffs)
-
-#print(set_all_cutoffs)
 
 
 threshold = 0.025
